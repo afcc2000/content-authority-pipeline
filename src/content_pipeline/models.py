@@ -70,3 +70,20 @@ class CarouselPlan(BaseModel):
         default_factory=list, description="Hashtags do post, cada uma começando com #."
     )
     cta_text: str = Field(description="Chamada para ler o artigo completo no blog.")
+
+
+class SearchResult(BaseModel):
+    """Um resultado da busca na web (vem do Tavily, não do LLM)."""
+
+    url: str
+    title: str
+    snippet: str
+
+
+class SourceChoice(BaseModel):
+    """Fonte escolhida pelo LLM entre os resultados da busca."""
+
+    url: str = Field(description="URL do resultado escolhido, exatamente como aparece na lista.")
+    reason: str = Field(
+        description="Justificativa curta: por que esta fonte é a melhor para o tema."
+    )

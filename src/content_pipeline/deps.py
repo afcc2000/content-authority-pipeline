@@ -7,6 +7,7 @@ from content_pipeline.config import Settings
 from content_pipeline.fetcher import fetch_url
 from content_pipeline.images import ImageGenerator
 from content_pipeline.llm import StructuredLLM
+from content_pipeline.web import Search
 
 
 @dataclass
@@ -21,3 +22,4 @@ class Deps:
     images: ImageGenerator
     settings: Settings = field(default_factory=Settings)
     fetch: Callable[[str], tuple[str | None, str]] = fetch_url
+    search: Search | None = None  # busca por tema; None sem TAVILY_API_KEY

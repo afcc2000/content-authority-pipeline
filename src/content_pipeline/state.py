@@ -2,7 +2,7 @@
 
 from typing import Literal, TypedDict
 
-from content_pipeline.models import Article, Briefing, CarouselPlan
+from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult
 
 
 class PipelineState(TypedDict, total=False):
@@ -12,6 +12,8 @@ class PipelineState(TypedDict, total=False):
     só as chaves que alterou, e o LangGraph junta essas atualizações ao estado.
     """
 
+    topic: str
+    search_results: list[SearchResult]
     source_url: str
     source_path: str
     source_text: str

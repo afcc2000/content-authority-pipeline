@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from content_pipeline.config import Settings
-from content_pipeline.models import Article, Briefing, CarouselPlan, Slide
+from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, Slide
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
@@ -59,3 +59,10 @@ def make_carousel(
         hashtags=["#teste"],
         cta_text=cta,
     )
+
+
+def make_search_results(n: int = 2) -> list[SearchResult]:
+    return [
+        SearchResult(url=f"https://exemplo.com/{i}", title=f"Resultado {i}", snippet=f"Trecho {i}.")
+        for i in range(1, n + 1)
+    ]

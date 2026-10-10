@@ -54,7 +54,7 @@ def make_ingest(deps: Deps):
             "answers": [],
             "rewrites": 0,
             "carousel_attempts": 0,
-            "warnings": [],
+            "warnings": list(state.get("warnings") or []),  # preserva avisos do research
         }
         if not state.get("output_dir"):
             folder = f"{date.today().isoformat()}-{slugify(title or fallback_name)}"
