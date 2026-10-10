@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     llm_model: str | None = None  # "provedor:modelo", ex.: "openai:<modelo>"
     image_provider: Literal["fake", "higgsfield"] = "fake"
+    web_reader: Literal["trafilatura", "tavily"] = "trafilatura"  # leitura dos links
     prompts_dir: Path = Path("prompts")
     output_root: Path = Path("outputs")
 
