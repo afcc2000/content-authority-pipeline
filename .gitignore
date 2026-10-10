@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Ambientes virtuais
+.venv/
+venv/
+
+# Testes e ferramentas
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Variáveis de ambiente (segredos)
+.env
+.env.*
+!.env.example
+
+# Saídas do pipeline
+outputs/
+
+# Documentação (provisório: entra no repositório no T02)
+docs/
+
+# IDEs
+.vscode/
+.idea/
+.history/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
