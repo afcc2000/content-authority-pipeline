@@ -296,8 +296,8 @@ No nosso projeto, esta leitura é feita no **T00**, antes do primeiro commit.
 | 11 | T03 e T04 |
 | 12 | T05 |
 | 13 | T06 |
-| 14 | T07 e T09 |
-| 15 | T09 a T12 |
+| 14 | T07, T08a e T09 |
+| 15 | T09 a T12 (com T09a) |
 | 16 | T08, T13 e T14 |
 | 17 | T15, T16 e T18 |
 | 18 e 19 | Prompt-base e definição de pronto (início de [tickets](tickets.md)) e T18 |

@@ -3,7 +3,7 @@ titulo: Content Authority Pipeline — documento do projeto
 curso: AKCIT · Engenharia de Software com IA · Microcurso 4 (Laboratório Introdutório: Construindo um Miniprojeto com IA Generativa)
 autor: André Felipe (GitHub afcc2000)
 repositorio_sugerido: content-authority-pipeline
-versao_do_documento: 1.2 (2026-10-10)
+versao_do_documento: 1.3 (2026-10-10)
 documento_irmao: "[roteiro](roteiro.md)"
 ---
 
@@ -48,7 +48,7 @@ link do conteúdo → perguntas e contribuição do autor → artigo longo (blog
 
 | Dentro do MVP | Fora do MVP (vai para "Limitações e Próximos Passos") |
 |---|---|
-| Entrada por URL ou por arquivo de texto local | Pesquisa por tema (o agente buscar fontes sozinho) |
+| Entrada por URL, por arquivo de texto local ou por tema (busca na web com o Tavily, T09a) **[Decisão v1.3]** | Agente autônomo de pesquisa (`create_agent` com tools de busca, várias rodadas) |
 | Verificação de relevância + briefing | Publicação/agendamento em redes sociais |
 | Entrevista com o autor via `interrupt` | Interface web (o MVP é CLI) |
 | Artigo em Markdown com aprovação accept/edit/reject | Aprendizado automático a partir das edições (o "reflection" do social-media-agent) |
@@ -75,6 +75,8 @@ Os dois diagramas abaixo foram renderizados com o Mermaid CLI sem erro **[Verifi
 
 ```mermaid
 flowchart TD
+    TEMA([Tema]) --> RES[research<br/>busca na web + escolhe a fonte]
+    RES --> ING
     IN([Link do conteúdo ou texto]) --> ING[ingest<br/>busca e limpa o texto]
     ING --> ANA[analyze<br/>relevância + briefing]
     ANA -->|irrelevante| END1([Encerra com relatório])
@@ -135,7 +137,8 @@ Por que assim: o fluxo do negócio é fixo e conhecido (link → entrevista → 
 
 | Nó | Entrada (estado) | O que faz | Saída (estado) | Usa LLM? |
 |---|---|---|---|---|
-| `ingest` | `source_url` ou `source_text` | Baixa a página com `httpx`, extrai o texto principal com `trafilatura`; ou lê o arquivo local | `source_text`, `source_title` | Não |
+| `research` | `topic` + `prompts/context.md` | Busca na web com o Tavily Search e escolhe a melhor fonte entre os resultados (só quando a entrada é um tema) | `source_url`, `search_results` | Sim |
+| `ingest` | `source_url` ou `source_text` | Baixa a página com `httpx` e extrai o texto principal com `trafilatura` (ou com o Tavily Extract, se `WEB_READER=tavily`); ou lê o arquivo local | `source_text`, `source_title` | Não |
 | `analyze` | `source_text` + `prompts/context.md` | Julga relevância para o contexto configurado e gera o briefing com perguntas para o autor | `briefing` (modelo `Briefing`) | Sim |
 | `interview` | `briefing.questions`, `answers` | Faz **uma pergunta por vez** com `interrupt()`; o autor pode pular | `answers` | Não (MVP) |
 | `write_article` | briefing, respostas, `feedback` (se houver) + `prompts/article_style.md` | Escreve o artigo de autoridade em Markdown | `article` (modelo `Article`) | Sim |
@@ -147,6 +150,7 @@ Por que assim: o fluxo do negócio é fixo e conhecido (link → entrevista → 
 
 **Roteamento:**
 
+- No início: com `topic` → `research`; sem `topic` → `ingest`.
 - Depois de `analyze`: irrelevante → encerra com relatório; relevante → `interview`.
 - `interview` volta para si mesma enquanto houver perguntas sem resposta. **[Decisão]** No MVP o critério de parada é determinístico (acabaram as perguntas do briefing). Uma pergunta de follow-up decidida pelo LLM fica como stretch, porque critério determinístico é testável.
 - `approval`: `reject` volta para `write_article` com o feedback (limite sugerido: 3 reescritas); `edit` e `accept` seguem para o carrossel.
@@ -310,6 +314,7 @@ O texto vindo da URL é **conteúdo não confiável**. Ele pode conter instruç�
 | LLM (provedor escolhido: OpenAI) **[Decisão]** | `langchain-openai` | 1.7.0 |
 | Modelos e config | `pydantic` / `pydantic-settings` / `python-dotenv` | 2.14.0 / 2.15.0 / 1.2.4 |
 | CLI e ingestão | `typer` / `httpx` / `trafilatura` | 0.27.3 / 0.28.1 / 2.3.1 |
+| Leitura e busca na web (Tavily) **[Decisão v1.3]** | `tavily-python` | 0.8.5 |
 | Dev | `pytest` / `ruff` | 9.1.1 / 0.17.0 |
 
 Ambiente e dependências são gerenciados com o **`uv`** **[Decisão]** (Python, ambiente virtual e lockfile `uv.lock`). A avaliação no LangSmith não usa `openevals`: o juiz é o próprio `StructuredLLM` (ver `docs/tickets.md`, T23).
@@ -344,6 +349,7 @@ dependencies = [
   "typer>=0.27,<1",
   "httpx>=0.28,<1",
   "trafilatura>=2.3,<3",
+  "tavily-python>=0.8,<1",
 ]
 
 [dependency-groups]
@@ -382,6 +388,10 @@ OPENAI_API_KEY=
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=
 LANGSMITH_PROJECT=content-authority-pipeline
+
+# Web: leitura de links (trafilatura | tavily) e busca por tema (exige a chave do Tavily)
+WEB_READER=trafilatura
+TAVILY_API_KEY=
 
 # Imagem: fake | higgsfield
 IMAGE_PROVIDER=fake
@@ -423,15 +433,16 @@ content-authority-pipeline/
 │   ├── __init__.py
 │   ├── cli.py                # Typer: run, demo; trata os interrupts no terminal
 │   ├── config.py             # pydantic-settings
-│   ├── deps.py               # Deps: dependências injetadas em build_graph (LLM, imagem, settings, fetch)
+│   ├── deps.py               # Deps: dependências injetadas em build_graph (LLM, imagem, settings, fetch, search)
 │   ├── models.py             # Briefing, Article, Slide, CarouselPlan
 │   ├── state.py              # PipelineState
 │   ├── llm.py                # StructuredLLM real (init_chat_model + with_structured_output)
 │   ├── prompts.py            # carrega e compõe prompts/*.md
 │   ├── fetcher.py            # httpx + trafilatura
+│   ├── web.py                # Tavily: leitura opcional (make_fetch) e busca por tema (make_search)
 │   ├── graph.py              # build_graph(deps) -> grafo compilado
 │   ├── export.py
-│   ├── nodes/                # ingest, analyze, interview, write_article, approval (common.py no T22)
+│   ├── nodes/                # research, ingest, analyze, interview, write_article, approval (common.py no T22)
 │   ├── carousel/             # planner.py, subgraph.py, validators.py
 │   └── images/               # base.py, fake.py (higgsfield.py só no opcional E1)
 ├── tests/                    # rodam sem chave de API

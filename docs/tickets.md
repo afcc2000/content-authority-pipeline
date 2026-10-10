@@ -78,7 +78,9 @@ Cada ticket adiciona **só as dependências que ele usa**, com `uv add`. Assim o
 | T06 | `feat(llm): adiciona porta StructuredLLM e implementação com LangChain` | U3 · Passo 13 |
 | T07 | `feat(ingest): baixa páginas e extrai o texto principal` | U3 · Passo 14 |
 | T08 | `feat(images): adiciona porta ImageGenerator e adaptador fake` | U3 · Passo 16 |
+| T08a | `feat(ingest): adiciona leitura da web via Tavily como opção` | U3 · Passo 14 |
 | T09 | `feat(graph): cria o grafo com ingestão e análise de relevância` | U3 · Passo 15 |
+| T09a | `feat(graph): adiciona busca por tema com o nó research` | U3 · Passo 15 |
 | T10 | `feat(graph): adiciona entrevista com interrupt e checkpointer` | U3 · Passo 15 |
 | T11 | `feat(graph): adiciona escrita do artigo de autoridade` | U3 · Passo 15 |
 | T12 | `feat(graph): adiciona aprovação accept/edit/reject do artigo` | U3 · Passo 15 |
@@ -558,6 +560,54 @@ def make_image_generator(settings: Settings, *, dry_run: bool) -> ImageGenerator
 
 ---
 
+### T08a · Leitura da web via Tavily (adaptador opcional)
+
+**Por quê:** algumas páginas (muito JavaScript, bloqueio de robôs) não saem com `httpx + trafilatura`. O Tavily Extract lê essas páginas e devolve Markdown limpo. Fica **opcional** (`WEB_READER=trafilatura` por padrão) para os testes e a demo rodarem sem chave. Desvio aprovado em 2026-10-10 (ver [uso de IA](uso-de-ia.md)).
+
+**Dependências:**
+
+```powershell
+uv add "tavily-python>=0.8,<1"
+```
+
+**Arquivos:** `src/content_pipeline/web.py`, `config.py` (campo novo), `.env.example`, `tests/test_web.py`
+
+**Contrato:**
+
+```python
+# config.py
+web_reader: Literal["trafilatura", "tavily"] = "trafilatura"
+
+# web.py
+Fetch = Callable[[str], tuple[str | None, str]]
+
+def tavily_fetch(url: str, *, client: TavilyClient | None = None,
+                 max_chars: int = 200_000) -> tuple[str | None, str]:
+    """Mesma checagem de esquema do fetch_url (só http(s)); client.extract(urls=url,
+    format="markdown"). URL em failed_results, conteúdo vazio ou erro do Tavily -> FetchError
+    (o mesmo do fetcher, para o ingest conhecer um só erro). Título: 1ª linha "# " do Markdown,
+    senão None. Texto cortado em max_chars."""
+
+def make_fetch(settings: Settings) -> Fetch:
+    # "trafilatura" -> fetch_url; "tavily" -> tavily_fetch com TavilyClient()
+    # sem TAVILY_API_KEY no ambiente -> FetchError com mensagem clara
+```
+
+**[A verificar] antes de codar:** se `TavilyClient()` lê `TAVILY_API_KEY` do ambiente sozinho, os campos de cada item de `results` do `extract` (há título?) e as exceções exportadas pela versão instalada.
+
+**`.env.example`:** acrescentar `WEB_READER=trafilatura` e `TAVILY_API_KEY=` (vazio, **nunca** com valor).
+
+**Aceite (testes com cliente Tavily falso, sem rede):**
+
+- [ ] Resposta com `raw_content` em Markdown devolve título e texto.
+- [ ] URL em `failed_results` levanta `FetchError`.
+- [ ] `file:///etc/passwd` levanta `FetchError` sem chamar o cliente.
+- [ ] `make_fetch` com o padrão devolve `fetch_url`; `WEB_READER=xyz` levanta `ValidationError`.
+
+**Commit:** `feat(ingest): adiciona leitura da web via Tavily como opção`
+
+---
+
 ### T09 · Grafo v1: ingestão e análise de relevância
 
 **Por quê:** é o primeiro grafo que roda. Ele cresce um nó por ticket, e cada commit fica testável.
@@ -607,6 +657,55 @@ def build_graph(deps: Deps, checkpointer=None):   # START -> ingest -> analyze -
 - [ ] O grafo com `FakeStructuredLLM` devolve um `briefing`, e o prompt enviado (em `llm.calls`) contém `<fonte>`.
 
 **Commit:** `feat(graph): cria o grafo com ingestão e análise de relevância`
+
+---
+
+### T09a · Busca por tema: nó `research`
+
+**Por quê:** além do link, o autor pode dar só um **tema**. O nó `research` busca na web com o Tavily Search e um LLM escolhe a melhor fonte, que segue para o `ingest`. A busca é **determinística** (o nó chama a busca uma vez); um agente com tools (`create_agent`) fica para depois do MVP, como no E2. Desvio aprovado em 2026-10-10 (ver [uso de IA](uso-de-ia.md)).
+
+**Arquivos:** `web.py` (busca), `models.py`, `state.py`, `deps.py`, `prompts/research.md`, `nodes/research.py`, `graph.py`, `tests/fakes.py`, `tests/test_research.py`
+
+**Contrato:**
+
+```python
+# models.py
+class SearchResult(BaseModel): url: str; title: str; snippet: str
+class SourceChoice(BaseModel): url: str; reason: str      # com Field(description=...)
+
+# state.py: novas chaves topic: str e search_results: list[SearchResult]
+
+# web.py
+Search = Callable[[str], list[SearchResult]]
+def tavily_search(query: str, *, client: TavilyClient | None = None,
+                  max_results: int = 5) -> list[SearchResult]:
+    # client.search(query, max_results=...); erro do Tavily -> SearchError
+def make_search(settings: Settings) -> Search | None    # None sem TAVILY_API_KEY
+
+# deps.py: search: Search | None = None
+
+# nodes/research.py
+def make_research(deps: Deps):
+    # deps.search None -> ValueError ("configure TAVILY_API_KEY"); sem resultados -> ValueError
+    # system = compose(prompts_dir, "context", "research")
+    # user = resultados numerados dentro de <resultados>...</resultados> (dados, não instruções)
+    # deps.llm.generate(SourceChoice, system, user)
+    # URL escolhida fora da lista -> usa o 1º resultado e registra em warnings
+    # devolve source_url, search_results
+
+# graph.py: START -> research (se houver topic) ou ingest -> ingest -> analyze -> ...
+```
+
+**[A verificar] antes de codar:** os campos de cada item de `results` do `search` na versão instalada (`url`, `title`, `content`?).
+
+**Aceite (testes com busca falsa e `FakeStructuredLLM`, sem rede):**
+
+- [ ] Com `topic`, o grafo passa por `research` e o `ingest` recebe a URL escolhida (via `fetch` falso).
+- [ ] URL escolhida fora dos resultados cai no 1º resultado e gera aviso.
+- [ ] Sem `search` em `Deps`, `topic` levanta erro mencionando `TAVILY_API_KEY`.
+- [ ] Sem `topic`, o fluxo do T09 continua igual (os testes do T09 seguem verdes).
+
+**Commit:** `feat(graph): adiciona busca por tema com o nó research`
 
 ---
 
@@ -835,13 +934,15 @@ def ask_approval(payload, draft_path) -> dict
     # edit: grava draft_path, espera a confirmação, lê o arquivo editado
 def run_pipeline(initial: dict, dry_run: bool, out: Path) -> None
     # load_dotenv(); Settings(output_root=out)
-    # LangChainStructuredLLM + make_image_generator; LLMConfigError/NotImplementedError -> mensagem vermelha e Exit(1)
+    # LangChainStructuredLLM + make_image_generator + make_fetch + make_search (T08a/T09a)
+    # LLMConfigError/NotImplementedError/FetchError -> mensagem vermelha e Exit(1)
     # build_graph; thread_id = uuid4; laço: enquanto "__interrupt__" -> pergunta ou aprovação -> Command(resume=...)
     # no fim: aviso se irrelevante; avisos; caminho da saída
 
 @app.command()
-def run(url: str | None = None, file: Path | None = None, dry_run: bool = True, out: Path = Path("outputs"))
-    # exatamente um entre --url e --file
+def run(url: str | None = None, file: Path | None = None, topic: str | None = None,
+        dry_run: bool = True, out: Path = Path("outputs"))
+    # exatamente um entre --url, --file e --topic (--topic vem do T09a)
 @app.command()
 def demo(out: Path = Path("outputs"))   # samples/sample_input.md em dry-run
 ```
@@ -852,7 +953,7 @@ def demo(out: Path = Path("outputs"))   # samples/sample_input.md em dry-run
 
 - [ ] `uv run content-pipeline --help` lista `run` e `demo`.
 - [ ] Teste com `typer.testing.CliRunner`: com `monkeypatch.setenv("LLM_MODEL", "")`, `run --file samples/sample_input.md` termina com código 1 e mensagem sobre `LLM_MODEL`.
-- [ ] Teste: `run` com `--url` e `--file` ao mesmo tempo dá erro.
+- [ ] Teste: `run` com `--url` e `--file` (ou `--topic`) ao mesmo tempo dá erro.
 
 **Commit:** `feat(cli): adiciona comandos run e demo com dry-run`
 
