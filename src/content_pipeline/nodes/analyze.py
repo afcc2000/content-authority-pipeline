@@ -1,5 +1,9 @@
 """Nó `analyze`: julga a relevância da fonte e gera o briefing com perguntas para o autor."""
 
+from typing import Literal
+
+from langgraph.graph import END
+
 from content_pipeline.deps import Deps
 from content_pipeline.models import Briefing
 from content_pipeline.prompts import compose
@@ -21,3 +25,8 @@ def make_analyze(deps: Deps):
         return {"briefing": briefing}
 
     return analyze
+
+
+def route_after_analyze(state: PipelineState) -> Literal["interview", "__end__"]:
+    """Fonte irrelevante termina o pipeline aqui; relevante segue para a entrevista."""
+    return "interview" if state["briefing"].is_relevant else END
