@@ -2,7 +2,7 @@
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from content_pipeline.deps import Deps
 from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, Slide
@@ -11,6 +11,7 @@ from content_pipeline.nodes import (
     make_analyze,
     make_ingest,
     make_research,
+    make_write_article,
     route_after_analyze,
     route_after_interview,
 )
@@ -35,7 +36,7 @@ def make_checkpointer() -> InMemorySaver:
 
 
 def build_graph(deps: Deps, checkpointer=None):
-    """Monta e compila o grafo: START -> [research] -> ingest -> analyze -> [interview]* -> END.
+    """Monta e compila o grafo: START -> [research] -> ingest -> analyze -> [interview]* -> write_article.
 
     Args:
         deps: Dependências injetadas nos nós (LLM, imagens, settings, fetch, search).
@@ -46,10 +47,12 @@ def build_graph(deps: Deps, checkpointer=None):
     builder.add_node("ingest", make_ingest(deps))
     builder.add_node("analyze", make_analyze(deps))
     builder.add_node("interview", interview)
+    builder.add_node("write_article", make_write_article(deps))
 
     builder.add_conditional_edges(START, route_start, ["research", "ingest"])
     builder.add_edge("research", "ingest")
     builder.add_edge("ingest", "analyze")
     builder.add_conditional_edges("analyze", route_after_analyze)
     builder.add_conditional_edges("interview", route_after_interview)
+    builder.add_edge("write_article", END)
     return builder.compile(checkpointer=checkpointer)

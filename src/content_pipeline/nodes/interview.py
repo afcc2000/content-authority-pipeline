@@ -8,7 +8,6 @@ Regras do `interrupt` (projeto §5.2):
 
 from typing import Literal
 
-from langgraph.graph import END
 from langgraph.types import interrupt
 
 from content_pipeline.state import PipelineState
@@ -31,8 +30,8 @@ def interview(state: PipelineState) -> dict:
     return {"answers": [*answers, answer or ""]}
 
 
-def route_after_interview(state: PipelineState) -> Literal["interview", "__end__"]:
-    """Volta para `interview` enquanto faltar resposta; depois termina (no T11, vai escrever)."""
+def route_after_interview(state: PipelineState) -> Literal["interview", "write_article"]:
+    """Volta para `interview` enquanto faltar resposta; depois segue para `write_article`."""
     if len(state.get("answers") or []) < len(state["briefing"].questions):
         return "interview"
-    return END
+    return "write_article"

@@ -8,9 +8,16 @@ from langgraph.types import Command
 from content_pipeline.deps import Deps
 from content_pipeline.graph import build_graph, make_checkpointer
 from content_pipeline.images import FakeImageGenerator
-from content_pipeline.models import Briefing, SearchResult, SourceChoice
+from content_pipeline.models import Article, Briefing, SearchResult, SourceChoice
 from content_pipeline.nodes.ingest import make_ingest, slugify
-from tests.fakes import FakeStructuredLLM, make_briefing, make_search_results, make_settings
+from content_pipeline.nodes.write_article import build_article_request
+from tests.fakes import (
+    FakeStructuredLLM,
+    make_article,
+    make_briefing,
+    make_search_results,
+    make_settings,
+)
 
 
 def make_deps(tmp_path: Path, llm: FakeStructuredLLM | None = None, **overrides) -> Deps:
@@ -102,7 +109,7 @@ def test_fonte_irrelevante_termina_sem_interrupt(tmp_path: Path) -> None:
 
 
 def test_fonte_relevante_pausa_uma_vez_por_pergunta(tmp_path: Path) -> None:
-    llm = FakeStructuredLLM({Briefing: [make_briefing()]})  # 2 perguntas
+    llm = FakeStructuredLLM({Briefing: [make_briefing()], Article: [make_article()]})  # 2 perguntas
     graph = build_graph(make_deps(tmp_path, llm=llm), checkpointer=make_checkpointer())
 
     primeira = graph.invoke({"source_text": "Texto da fonte."}, config())
@@ -149,3 +156,58 @@ def test_checkpointer_preserva_search_result_entre_pausas(tmp_path: Path) -> Non
     estado = graph.get_state(config()).values
 
     assert all(isinstance(r, SearchResult) for r in estado["search_results"])
+
+
+def run_interview(tmp_path: Path, answers: list[str]) -> tuple[FakeStructuredLLM, dict]:
+    """Roda o grafo com fonte relevante, respondendo a entrevista com `answers`."""
+    llm = FakeStructuredLLM({Briefing: [make_briefing()], Article: [make_article()]})
+    graph = build_graph(make_deps(tmp_path, llm=llm), checkpointer=make_checkpointer())
+    graph.invoke({"source_text": "Texto da fonte."}, config())
+    final: dict = {}
+    for answer in answers:
+        final = graph.invoke(Command(resume=answer), config())
+    return llm, final
+
+
+def test_resposta_da_entrevista_vai_para_o_prompt_do_artigo(tmp_path: Path) -> None:
+    llm, _final = run_interview(tmp_path, ["Atendo há 10 anos.", "Um caso real."])
+
+    schema, _system, user = llm.calls[1]
+    assert schema is Article
+    assert "R: Atendo há 10 anos." in user
+    assert "<fonte>" in user
+
+
+def test_pergunta_pulada_aparece_marcada_no_prompt(tmp_path: Path) -> None:
+    llm, _final = run_interview(tmp_path, ["Atendo há 10 anos.", ""])
+
+    assert "R: (o autor pulou esta pergunta)" in llm.calls[1][2]
+
+
+def test_estado_final_tem_o_artigo(tmp_path: Path) -> None:
+    _llm, final = run_interview(tmp_path, ["a", "b"])
+
+    assert isinstance(final["article"], Article)
+    assert "__interrupt__" not in final
+
+
+def test_pedido_de_reescrita_inclui_versao_anterior_e_feedback() -> None:
+    state = {
+        "briefing": make_briefing(),
+        "answers": ["a", "b"],
+        "source_text": "Texto.",
+        "article": make_article("Versão 1"),
+        "feedback": "Mais exemplos práticos.",
+    }
+
+    request = build_article_request(state)
+
+    assert "<versao_anterior>\n# Versão 1" in request
+    assert "Mais exemplos práticos." in request
+    assert "Reescreva" in request
+
+
+def test_pedido_sem_feedback_nao_tem_reescrita() -> None:
+    state = {"briefing": make_briefing(), "answers": ["a", "b"], "source_text": "Texto."}
+
+    assert "<versao_anterior>" not in build_article_request(state)
