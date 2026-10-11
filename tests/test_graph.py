@@ -9,6 +9,7 @@ from content_pipeline.deps import Deps
 from content_pipeline.graph import build_graph, make_checkpointer
 from content_pipeline.images import FakeImageGenerator
 from content_pipeline.models import Article, Briefing, SearchResult, SourceChoice
+from content_pipeline.nodes.approval import article_from_markdown
 from content_pipeline.nodes.ingest import make_ingest, slugify
 from content_pipeline.nodes.write_article import build_article_request
 from tests.fakes import (
@@ -118,7 +119,7 @@ def test_fonte_relevante_pausa_uma_vez_por_pergunta(tmp_path: Path) -> None:
 
     payloads = [primeira["__interrupt__"][0].value, segunda["__interrupt__"][0].value]
     assert [p["index"] for p in payloads] == [1, 2]
-    assert "__interrupt__" not in final
+    assert final["__interrupt__"][0].value["type"] == "approval"  # a entrevista acabou
     assert final["answers"] == ["contribuição 1", ""]
 
 
@@ -158,19 +159,30 @@ def test_checkpointer_preserva_search_result_entre_pausas(tmp_path: Path) -> Non
     assert all(isinstance(r, SearchResult) for r in estado["search_results"])
 
 
-def run_interview(tmp_path: Path, answers: list[str]) -> tuple[FakeStructuredLLM, dict]:
-    """Roda o grafo com fonte relevante, respondendo a entrevista com `answers`."""
-    llm = FakeStructuredLLM({Briefing: [make_briefing()], Article: [make_article()]})
-    graph = build_graph(make_deps(tmp_path, llm=llm), checkpointer=make_checkpointer())
+def run_interview(
+    tmp_path: Path,
+    answers: list[str],
+    articles: list[Article] | None = None,
+    **settings_overrides,
+):
+    """Roda o grafo com fonte relevante até a 1ª aprovação, respondendo a entrevista.
+
+    Returns:
+        (llm falso, grafo compilado, resultado do último `invoke`).
+    """
+    llm = FakeStructuredLLM({Briefing: [make_briefing()], Article: articles or [make_article()]})
+    deps = make_deps(tmp_path, llm=llm)
+    deps.settings = make_settings(output_root=tmp_path / "outputs", **settings_overrides)
+    graph = build_graph(deps, checkpointer=make_checkpointer())
     graph.invoke({"source_text": "Texto da fonte."}, config())
     final: dict = {}
     for answer in answers:
         final = graph.invoke(Command(resume=answer), config())
-    return llm, final
+    return llm, graph, final
 
 
 def test_resposta_da_entrevista_vai_para_o_prompt_do_artigo(tmp_path: Path) -> None:
-    llm, _final = run_interview(tmp_path, ["Atendo há 10 anos.", "Um caso real."])
+    llm, _graph, _final = run_interview(tmp_path, ["Atendo há 10 anos.", "Um caso real."])
 
     schema, _system, user = llm.calls[1]
     assert schema is Article
@@ -179,16 +191,16 @@ def test_resposta_da_entrevista_vai_para_o_prompt_do_artigo(tmp_path: Path) -> N
 
 
 def test_pergunta_pulada_aparece_marcada_no_prompt(tmp_path: Path) -> None:
-    llm, _final = run_interview(tmp_path, ["Atendo há 10 anos.", ""])
+    llm, _graph, _final = run_interview(tmp_path, ["Atendo há 10 anos.", ""])
 
     assert "R: (o autor pulou esta pergunta)" in llm.calls[1][2]
 
 
 def test_estado_final_tem_o_artigo(tmp_path: Path) -> None:
-    _llm, final = run_interview(tmp_path, ["a", "b"])
+    _llm, _graph, final = run_interview(tmp_path, ["a", "b"])
 
     assert isinstance(final["article"], Article)
-    assert "__interrupt__" not in final
+    assert final["__interrupt__"][0].value["type"] == "approval"
 
 
 def test_pedido_de_reescrita_inclui_versao_anterior_e_feedback() -> None:
@@ -211,3 +223,90 @@ def test_pedido_sem_feedback_nao_tem_reescrita() -> None:
     state = {"briefing": make_briefing(), "answers": ["a", "b"], "source_text": "Texto."}
 
     assert "<versao_anterior>" not in build_article_request(state)
+
+
+def test_accept_termina_com_decisao_accept(tmp_path: Path) -> None:
+    _llm, graph, _ = run_interview(tmp_path, ["a", "b"])
+
+    final = graph.invoke(Command(resume="accept"), config())
+
+    assert final["decision"] == "accept"
+    assert "__interrupt__" not in final
+
+
+def test_payload_da_aprovacao(tmp_path: Path) -> None:
+    _llm, _graph, final = run_interview(tmp_path, ["a", "b"])
+
+    payload = final["__interrupt__"][0].value
+    assert payload["type"] == "approval"
+    assert payload["article_markdown"].startswith("# Título do artigo")
+    assert (payload["rewrites"], payload["can_reject"]) == (0, True)
+
+
+def test_edit_converte_o_markdown_editado_em_article(tmp_path: Path) -> None:
+    _llm, graph, _ = run_interview(tmp_path, ["a", "b"])
+    editado = "# Título editado\n\n*Novo subtítulo*\n\nCorpo editado."
+
+    final = graph.invoke(Command(resume={"action": "edit", "article_markdown": editado}), config())
+
+    article = final["article"]
+    assert final["decision"] == "edit"
+    assert (article.title, article.subtitle, article.body_markdown) == (
+        "Título editado",
+        "Novo subtítulo",
+        "Corpo editado.",
+    )
+
+
+def test_reject_reescreve_com_feedback_e_versao_anterior(tmp_path: Path) -> None:
+    llm, graph, _ = run_interview(
+        tmp_path, ["a", "b"], articles=[make_article("Versão 1"), make_article("Versão 2")]
+    )
+
+    final = graph.invoke(
+        Command(resume={"action": "reject", "feedback": "Mais exemplos práticos."}), config()
+    )
+
+    segundo_pedido = llm.calls[2][2]  # calls: analyze, artigo V1, artigo V2
+    assert "Mais exemplos práticos." in segundo_pedido
+    assert "# Versão 1" in segundo_pedido
+    assert final["rewrites"] == 1
+    assert final["__interrupt__"][0].value["article_markdown"].startswith("# Versão 2")
+
+
+def test_reject_no_limite_termina_com_aviso(tmp_path: Path) -> None:
+    _llm, graph, first = run_interview(tmp_path, ["a", "b"], max_rewrites=0)
+    assert first["__interrupt__"][0].value["can_reject"] is False
+
+    final = graph.invoke(Command(resume={"action": "reject", "feedback": "Não gostei."}), config())
+
+    assert "__interrupt__" not in final
+    assert any("limite" in aviso for aviso in final["warnings"])
+
+
+@pytest.mark.parametrize(
+    "resposta",
+    [{"action": "edit"}, {"action": "reject", "feedback": "  "}, {"action": "publicar"}],
+)
+def test_resposta_invalida_levanta_value_error(tmp_path: Path, resposta: dict) -> None:
+    _llm, graph, _ = run_interview(tmp_path, ["a", "b"])
+
+    with pytest.raises(ValueError):
+        graph.invoke(Command(resume=resposta), config())
+
+
+def test_article_from_markdown_sem_titulo_mantem_o_do_fallback() -> None:
+    fallback = make_article("Título original")
+
+    article = article_from_markdown("Só o corpo novo.", fallback)
+
+    assert article.title == "Título original"
+    assert article.body_markdown == "Só o corpo novo."
+    assert article.tags == fallback.tags
+
+
+def test_article_from_markdown_sem_subtitulo_e_negrito_nao_vira_subtitulo() -> None:
+    article = article_from_markdown("# T\n\n**Negrito** no corpo.", make_article())
+
+    assert article.subtitle is None
+    assert article.body_markdown == "**Negrito** no corpo."
