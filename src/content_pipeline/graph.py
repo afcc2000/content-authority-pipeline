@@ -2,8 +2,9 @@
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
 
+from content_pipeline.carousel.subgraph import build_carousel_subgraph
 from content_pipeline.deps import Deps
 from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, Slide
 from content_pipeline.nodes import (
@@ -37,7 +38,10 @@ def make_checkpointer() -> InMemorySaver:
 
 
 def build_graph(deps: Deps, checkpointer=None):
-    """Monta e compila o grafo: START -> [research] -> ingest -> analyze -> [interview]* -> write_article <-> approval.
+    """Monta e compila o grafo do pipeline.
+
+    START -> [research] -> ingest -> analyze -> [interview]* -> write_article <-> approval
+    -> design_carousel (subgrafo) -> END.
 
     Args:
         deps: Dependências injetadas nos nós (LLM, imagens, settings, fetch, search).
@@ -50,6 +54,7 @@ def build_graph(deps: Deps, checkpointer=None):
     builder.add_node("interview", interview)
     builder.add_node("write_article", make_write_article(deps))
     builder.add_node("approval", make_approval(deps))
+    builder.add_node("design_carousel", build_carousel_subgraph(deps))
 
     builder.add_conditional_edges(START, route_start, ["research", "ingest"])
     builder.add_edge("research", "ingest")
@@ -57,4 +62,5 @@ def build_graph(deps: Deps, checkpointer=None):
     builder.add_conditional_edges("analyze", route_after_analyze)
     builder.add_conditional_edges("interview", route_after_interview)
     builder.add_edge("write_article", "approval")  # approval roteia sozinho via Command
+    builder.add_edge("design_carousel", END)
     return builder.compile(checkpointer=checkpointer)

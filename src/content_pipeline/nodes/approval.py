@@ -50,7 +50,9 @@ def make_approval(deps: Deps):
     """Cria o nó `approval`."""
     max_rewrites = deps.settings.max_rewrites
 
-    def approval(state: PipelineState) -> Command[Literal["write_article", "__end__"]]:
+    def approval(
+        state: PipelineState,
+    ) -> Command[Literal["design_carousel", "write_article", "__end__"]]:
         article = state["article"]
         rewrites = state.get("rewrites") or 0
         can_reject = rewrites < max_rewrites
@@ -67,16 +69,15 @@ def make_approval(deps: Deps):
             response = {"action": response}
         action = response.get("action")
 
-        # T14: accept e edit passam a seguir para "design_carousel".
         if action == "accept":
-            return Command(goto=END, update={"decision": "accept"})
+            return Command(goto="design_carousel", update={"decision": "accept"})
 
         if action == "edit":
             markdown = (response.get("article_markdown") or "").strip()
             if not markdown:
                 raise ValueError('A ação "edit" exige "article_markdown" com o artigo editado.')
             edited = article_from_markdown(markdown, article)
-            return Command(goto=END, update={"decision": "edit", "article": edited})
+            return Command(goto="design_carousel", update={"decision": "edit", "article": edited})
 
         if action == "reject":
             feedback = (response.get("feedback") or "").strip()

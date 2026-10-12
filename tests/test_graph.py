@@ -8,7 +8,7 @@ from langgraph.types import Command
 from content_pipeline.deps import Deps
 from content_pipeline.graph import build_graph, make_checkpointer
 from content_pipeline.images import FakeImageGenerator
-from content_pipeline.models import Article, Briefing, SearchResult, SourceChoice
+from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, SourceChoice
 from content_pipeline.nodes.approval import article_from_markdown
 from content_pipeline.nodes.ingest import make_ingest, slugify
 from content_pipeline.nodes.write_article import build_article_request
@@ -16,6 +16,7 @@ from tests.fakes import (
     FakeStructuredLLM,
     make_article,
     make_briefing,
+    make_carousel,
     make_search_results,
     make_settings,
 )
@@ -163,6 +164,8 @@ def run_interview(
     tmp_path: Path,
     answers: list[str],
     articles: list[Article] | None = None,
+    carousels: list[CarouselPlan] | None = None,
+    images: FakeImageGenerator | None = None,
     **settings_overrides,
 ):
     """Roda o grafo com fonte relevante até a 1ª aprovação, respondendo a entrevista.
@@ -170,9 +173,17 @@ def run_interview(
     Returns:
         (llm falso, grafo compilado, resultado do último `invoke`).
     """
-    llm = FakeStructuredLLM({Briefing: [make_briefing()], Article: articles or [make_article()]})
+    llm = FakeStructuredLLM(
+        {
+            Briefing: [make_briefing()],
+            Article: articles or [make_article()],
+            CarouselPlan: carousels or [make_carousel()],
+        }
+    )
     deps = make_deps(tmp_path, llm=llm)
     deps.settings = make_settings(output_root=tmp_path / "outputs", **settings_overrides)
+    if images is not None:
+        deps.images = images
     graph = build_graph(deps, checkpointer=make_checkpointer())
     graph.invoke({"source_text": "Texto da fonte."}, config())
     final: dict = {}
@@ -232,6 +243,18 @@ def test_accept_termina_com_decisao_accept(tmp_path: Path) -> None:
 
     assert final["decision"] == "accept"
     assert "__interrupt__" not in final
+
+
+def test_accept_gera_o_carrossel_com_uma_imagem_por_slide(tmp_path: Path) -> None:
+    images = FakeImageGenerator()
+    _llm, graph, _ = run_interview(tmp_path, ["a", "b"], images=images)
+
+    final = graph.invoke(Command(resume="accept"), config())
+
+    assert len(images.calls) == 5
+    assert len(final["images"]) == 5
+    assert final["images"][0].endswith("slide_01.prompt.txt")
+    assert final["validation_errors"] == []
 
 
 def test_payload_da_aprovacao(tmp_path: Path) -> None:
