@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     max_rewrites: int = 3  # reescritas de artigo permitidas
     max_carousel_attempts: int = 2  # tentativas de gerar um carrossel válido
 
-    min_slides: int = 5  # [A verificar] limites do Instagram
+    # Limites do Instagram verificados em 2026-10-10 (imprensa especializada; sem página oficial):
+    # o app aceita 20 slides, mas a API da Meta e os agendadores ainda limitam a 10; legenda
+    # mantida no valor conservador de 2.200; hashtags reduzidas a 5 por post (dez/2025).
+    min_slides: int = 5  # escolha editorial do projeto, não limite do Instagram
     max_slides: int = 10
     headline_max_chars: int = 80
     caption_max_chars: int = 2200
-    max_hashtags: int = 30
+    max_hashtags: int = 5
     image_aspect_ratio: str = "4:5"

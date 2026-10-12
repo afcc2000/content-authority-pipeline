@@ -28,7 +28,7 @@ def test_padroes_sem_env_file() -> None:
     assert settings.max_slides == 10
     assert settings.headline_max_chars == 80
     assert settings.caption_max_chars == 2200
-    assert settings.max_hashtags == 30
+    assert settings.max_hashtags == 5
     assert settings.image_aspect_ratio == "4:5"
 
 
