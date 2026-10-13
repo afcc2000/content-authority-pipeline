@@ -6,7 +6,7 @@ from langgraph.graph import END
 
 from content_pipeline.deps import Deps
 from content_pipeline.models import Briefing
-from content_pipeline.prompts import compose
+from content_pipeline.nodes.common import ask
 from content_pipeline.state import PipelineState
 
 
@@ -20,8 +20,7 @@ def make_analyze(deps: Deps):
     """Cria o nó `analyze`."""
 
     def analyze(state: PipelineState) -> dict:
-        system = compose(deps.settings.prompts_dir, "context", "analyze")
-        briefing = deps.llm.generate(Briefing, system, source_block(state))
+        briefing = ask(deps, Briefing, ["context", "analyze"], source_block(state))
         return {"briefing": briefing}
 
     return analyze

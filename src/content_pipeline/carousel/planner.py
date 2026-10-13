@@ -2,7 +2,7 @@
 
 from content_pipeline.deps import Deps
 from content_pipeline.models import CarouselPlan
-from content_pipeline.prompts import compose
+from content_pipeline.nodes.common import ask
 from content_pipeline.state import PipelineState
 
 
@@ -43,8 +43,12 @@ def make_plan_slides(deps: Deps):
     """Cria o nó `plan_slides`."""
 
     def plan_slides(state: PipelineState) -> dict:
-        system = compose(deps.settings.prompts_dir, "context", "carousel_brand", "carousel_rules")
-        carousel = deps.llm.generate(CarouselPlan, system, build_carousel_request(state, deps))
+        carousel = ask(
+            deps,
+            CarouselPlan,
+            ["context", "carousel_brand", "carousel_rules"],
+            build_carousel_request(state, deps),
+        )
         return {"carousel": carousel}
 
     return plan_slides

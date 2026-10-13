@@ -8,12 +8,11 @@ import os
 from collections.abc import Callable
 from functools import partial
 from typing import Any
-from urllib.parse import urlparse
 
 from tavily import TavilyClient
 
 from content_pipeline.config import Settings
-from content_pipeline.fetcher import FetchError, fetch_url
+from content_pipeline.fetcher import FetchError, fetch_url, require_http_url
 from content_pipeline.models import SearchResult
 
 Fetch = Callable[[str], tuple[str | None, str]]
@@ -40,9 +39,7 @@ def tavily_fetch(
     Raises:
         FetchError: Esquema diferente de http(s), erro do Tavily ou página sem conteúdo.
     """
-    scheme = urlparse(url).scheme.lower()
-    if scheme not in ("http", "https"):
-        raise FetchError(f"Só links http(s) são aceitos (recebido: '{scheme or 'sem esquema'}').")
+    require_http_url(url)
 
     tavily = client or TavilyClient()
     try:

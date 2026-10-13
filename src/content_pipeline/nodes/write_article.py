@@ -3,7 +3,7 @@
 from content_pipeline.deps import Deps
 from content_pipeline.models import Article
 from content_pipeline.nodes.analyze import source_block
-from content_pipeline.prompts import compose
+from content_pipeline.nodes.common import ask
 from content_pipeline.state import PipelineState
 
 SKIPPED = "(o autor pulou esta pergunta)"
@@ -46,8 +46,7 @@ def make_write_article(deps: Deps):
     """Cria o nó `write_article`."""
 
     def write_article(state: PipelineState) -> dict:
-        system = compose(deps.settings.prompts_dir, "context", "article_style")
-        article = deps.llm.generate(Article, system, build_article_request(state))
+        article = ask(deps, Article, ["context", "article_style"], build_article_request(state))
         return {"article": article}
 
     return write_article

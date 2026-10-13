@@ -18,6 +18,17 @@ class FetchError(RuntimeError):
     """A página não pôde ser baixada ou não tem texto aproveitável."""
 
 
+def require_http_url(url: str) -> None:
+    """Recusa links que não sejam http(s) (ex.: file://, javascript:).
+
+    Raises:
+        FetchError: Se o esquema de `url` não for http nem https.
+    """
+    scheme = urlparse(url).scheme.lower()
+    if scheme not in ("http", "https"):
+        raise FetchError(f"Só links http(s) são aceitos (recebido: '{scheme or 'sem esquema'}').")
+
+
 def fetch_url(
     url: str, *, client: httpx.Client | None = None, max_bytes: int = MAX_BYTES
 ) -> tuple[str | None, str]:
@@ -32,9 +43,7 @@ def fetch_url(
         FetchError: Esquema diferente de http(s), erro HTTP ou de rede, página maior que
             `max_bytes` ou página sem texto extraível.
     """
-    scheme = urlparse(url).scheme.lower()
-    if scheme not in ("http", "https"):
-        raise FetchError(f"Só links http(s) são aceitos (recebido: '{scheme or 'sem esquema'}').")
+    require_http_url(url)
 
     owns_client = client is None
     http = client or httpx.Client(timeout=TIMEOUT_SECONDS, follow_redirects=True)

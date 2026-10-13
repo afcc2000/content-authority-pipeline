@@ -2,7 +2,7 @@
 
 from content_pipeline.deps import Deps
 from content_pipeline.models import SearchResult, SourceChoice
-from content_pipeline.prompts import compose
+from content_pipeline.nodes.common import ask
 from content_pipeline.state import PipelineState
 
 
@@ -26,8 +26,7 @@ def make_research(deps: Deps):
         if not results:
             raise ValueError(f"A busca por '{topic}' não trouxe resultados.")
 
-        system = compose(deps.settings.prompts_dir, "context", "research")
-        choice = deps.llm.generate(SourceChoice, system, results_block(topic, results))
+        choice = ask(deps, SourceChoice, ["context", "research"], results_block(topic, results))
 
         urls = [r.url for r in results]
         warnings = list(state.get("warnings") or [])
