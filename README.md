@@ -142,7 +142,38 @@ copy .env.example .env      # Windows; no Linux/macOS: cp .env.example .env
 
 Depois, preencha no `.env` pelo menos `LLM_MODEL` e a chave do provedor (ex.: `OPENAI_API_KEY`).
 
-<!-- T25: instalação alternativa com pip/requirements.txt e comandos sem make -->
+### Instalação alternativa com pip
+
+Para quem não usa o uv (exige Python 3.12 instalado):
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # Windows; no Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e . --no-deps
+```
+
+O `requirements.txt` é gerado do `uv.lock`, com as mesmas versões, e inclui `pytest` e `ruff`.
+Nesse ambiente os comandos rodam sem o prefixo `uv run` (ex.: `content-pipeline demo`, `pytest`).
+Quem mudar as dependências deve regenerá-lo:
+
+```bash
+uv export --format requirements.txt --no-hashes --no-emit-project -o requirements.txt
+```
+
+### Atalhos
+
+O `Makefile` tem atalhos para as tarefas comuns. Sem `make` (o padrão no Windows), rode o
+comando equivalente:
+
+| Atalho | Comando equivalente |
+|---|---|
+| `make install` | `uv sync` |
+| `make run` | `uv run content-pipeline run --file samples/sample_input.md` |
+| `make demo` | `uv run content-pipeline demo` |
+| `make test` | `uv run pytest` |
+| `make lint` | `uv run ruff check .` |
+| `make format` | `uv run ruff format .` |
 
 ## Configuração
 
