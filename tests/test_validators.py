@@ -3,6 +3,7 @@
 import pytest
 
 from content_pipeline.carousel.validators import (
+    check_blog_link,
     check_caption,
     check_cta,
     check_headlines,
@@ -74,3 +75,24 @@ def test_validate_carousel_usa_os_limites_de_settings() -> None:
     assert validate_carousel(plan, make_settings(max_slides=6)) == [
         "O carrossel tem 7 slides (mínimo 5, máximo 6)."
     ]
+
+
+BLOG_URL = "https://meublog.com/artigo"
+
+
+def test_legenda_sem_link_do_blog_gera_erro() -> None:
+    errors = check_blog_link(make_carousel(), BLOG_URL)
+
+    assert len(errors) == 1
+    assert BLOG_URL in errors[0]
+
+
+def test_legenda_com_link_do_blog_passa() -> None:
+    plan = make_carousel()
+    plan.caption = f"Legenda do carrossel. Leia o artigo completo: {BLOG_URL}"
+
+    assert check_blog_link(plan, BLOG_URL) == []
+
+
+def test_sem_blog_url_regra_nao_se_aplica() -> None:
+    assert check_blog_link(make_carousel(), None) == []
