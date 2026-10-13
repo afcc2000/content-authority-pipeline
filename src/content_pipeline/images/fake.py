@@ -7,6 +7,7 @@ class FakeImageGenerator:
     """Usado em dry-run e nos testes; registra os prompts recebidos em `calls`."""
 
     def __init__(self) -> None:
+        """Começa sem nenhum prompt registrado."""
         self.calls: list[str] = []
 
     def generate(self, prompt: str, *, aspect_ratio: str, out_path: Path) -> Path:

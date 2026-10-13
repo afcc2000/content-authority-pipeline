@@ -75,54 +75,56 @@ Os dois diagramas abaixo foram renderizados com o Mermaid CLI sem erro **[Verifi
 
 ```mermaid
 flowchart TD
-    TEMA([Tema]) --> RES[research<br/>busca na web + escolhe a fonte]
+    TEMA(["Tema (--topic)"]) --> RES["research<br/>busca na web + escolhe a fonte"]
     RES --> ING
-    IN([Link do conteúdo ou texto]) --> ING[ingest<br/>busca e limpa o texto]
-    ING --> ANA[analyze<br/>relevância + briefing]
-    ANA -->|irrelevante| END1([Encerra com relatório])
-    ANA -->|relevante| INT[interview<br/>interrupt: pergunta ao autor]
-    INT -->|faltam contribuições| INT
-    INT -->|contribuições suficientes| WA[write_article<br/>artigo em Markdown]
-    WA --> HITL{{Aprovação do autor<br/>interrupt}}
-    HITL -->|reject + feedback| WA
-    HITL -->|edit ou accept| CAR
+    IN(["Link ou arquivo (--url / --file)"]) --> ING["ingest<br/>lê e limpa o texto"]
+    ING --> ANA["analyze<br/>relevância + briefing"]
+    ANA -->|irrelevante| REP["export_report<br/>só o relatório"]
+    ANA -->|relevante| INT["interview<br/>interrupt: uma pergunta por vez"]
+    INT -->|faltam perguntas| INT
+    INT -->|entrevista concluída| WA["write_article<br/>artigo em Markdown"]
+    WA --> HITL{{"approval<br/>interrupt: accept, edit ou reject"}}
+    HITL -->|reject + feedback, dentro do limite| WA
+    HITL -->|reject após o limite| REP
+    HITL -->|accept ou edit| CAR
 
-    subgraph CAR[design_carousel - subgrafo]
+    subgraph CAR["design_carousel (subgrafo)"]
         direction TB
-        PL[plan_slides<br/>slides + legenda] --> VAL{validate<br/>regras determinísticas}
-        VAL -->|falhou e tentativas < 2| PL
-        VAL -->|ok| IMG[render_images<br/>ImageGenerator]
+        PL["plan_slides<br/>slides + legenda"] --> VAL{"validate<br/>regras determinísticas"}
+        VAL -->|erros e tentativas sobrando| PL
+        VAL -->|ok, ou tentativas esgotadas com aviso| IMG["render_images<br/>ImageGenerator"]
     end
 
-    IMG --> EXP[export<br/>pasta de saída]
-    EXP --> END2([article.md, slides.json, caption.txt, imagens])
+    IMG --> EXP["export"]
+    EXP --> OUT(["article.md, slides.json, caption.txt, report.md, images/"])
+    REP --> OUT2(["report.md"])
 
-    PROMPTS[(prompts/*.md<br/>contexto, estilo, marca)] -.-> ANA
+    PROMPTS[("prompts/*.md<br/>contexto, estilo, marca")] -.-> RES
+    PROMPTS -.-> ANA
     PROMPTS -.-> WA
     PROMPTS -.-> PL
-    IMG -.-> ADP{{Adaptadores}}
-    ADP -.-> HF[Higgsfield]
-    ADP -.-> NB[Nano Banana ou outro]
-    ADP -.-> FK[Fake - dry-run e testes]
 ```
 
 ### 3.2 Componentes por camada
 
 ```mermaid
 flowchart LR
-    CLI[cli.py - Typer] --> GRAPH[graph.py<br/>StateGraph + checkpointer]
-    GRAPH --> NODES[nodes/*<br/>funções puras sobre o estado]
-    GRAPH --> SUB[carousel/<br/>subgrafo + validators]
-    NODES --> LLM[llm.py<br/>init_chat_model]
-    SUB --> LLM
-    SUB --> PORT[images/base.py<br/>ImageGenerator Protocol]
-    PORT --> A1[higgsfield.py]
-    PORT --> A2[fake.py]
-    NODES --> FETCH[fetcher.py<br/>httpx + trafilatura]
-    NODES --> PRM[prompts.py<br/>carrega prompts/*.md]
-    CFG[config.py<br/>pydantic-settings, .env] --> LLM
-    CFG --> PORT
-    GRAPH -. traces .-> LS[(LangSmith)]
+    CLI["cli.py<br/>Typer"] --> GRAPH["graph.py<br/>StateGraph + checkpointer"]
+    CFG["config.py<br/>pydantic-settings + .env"] --> DEPS["deps.py<br/>dependências injetadas"]
+    CLI --> DEPS
+    GRAPH --> NODES["nodes/*<br/>uma etapa por nó"]
+    GRAPH --> SUB["carousel/<br/>subgrafo + validators"]
+    GRAPH --> EXPO["export.py<br/>arquivos de saída"]
+    NODES --> ASK["nodes/common.py<br/>ask: prompts + LLM"]
+    SUB --> ASK
+    ASK --> PRM["prompts.py<br/>carrega prompts/*.md"]
+    ASK --> LLM["llm.py<br/>StructuredLLM + init_chat_model"]
+    NODES --> FETCH["fetcher.py<br/>httpx + trafilatura (padrão)"]
+    NODES --> WEB["web.py<br/>Tavily: leitura opcional + busca por tema"]
+    SUB --> PORT["images/base.py<br/>ImageGenerator (Protocol)"]
+    PORT --> FAKE["images/fake.py<br/>dry-run e testes"]
+    PORT -.-> HF["Higgsfield<br/>planejado (E1)"]
+    GRAPH -. traces .-> LS[("LangSmith")]
 ```
 
 ### 3.3 Padrão multiagente adotado

@@ -1,10 +1,10 @@
-"""Nó `approval`: o autor aceita, edita ou rejeita (com feedback) o artigo.
+r"""Nó `approval`: o autor aceita, edita ou rejeita (com feedback) o artigo.
 
 O nó devolve um `Command`, que atualiza o estado E diz para onde ir: não há função de
 rota separada. Respostas aceitas no `Command(resume=...)`:
 
     "accept" ou {"action": "accept"}
-    {"action": "edit", "article_markdown": "# Título\\n\\n..."}
+    {"action": "edit", "article_markdown": "# Título\n\n..."}
     {"action": "reject", "feedback": "O que mudar."}
 """
 
