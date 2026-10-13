@@ -22,10 +22,13 @@ def build_report(state: PipelineState) -> str:
         f"- **Decisão sobre o artigo:** {state.get('decision', '(sem decisão)')}",
         f"- **Reescritas:** {state.get('rewrites') or 0}",
         f"- **Tentativas do carrossel:** {state.get('carousel_attempts') or 0}",
-        "",
-        "## Entrevista",
     ]
+    if state.get("feedback"):
+        lines.append(f"- **Último feedback do autor:** {state['feedback']}")
+
     answers = state.get("answers") or []
+    if answers:
+        lines += ["", "## Entrevista"]
     for question, answer in zip(briefing.questions, answers, strict=False):
         lines += ["", f"**{question}**", "", answer or "(pulou)"]
 
@@ -35,25 +38,41 @@ def build_report(state: PipelineState) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _write(state: PipelineState, files: dict[str, str]) -> None:
+    """Grava cada `nome: conteúdo` de `files` em `output_dir`, criando a pasta se preciso."""
+    out = Path(state["output_dir"])
+    out.mkdir(parents=True, exist_ok=True)
+    for name, content in files.items():
+        (out / name).write_text(content, encoding="utf-8")
+
+
 def export(state: PipelineState) -> dict:
     """Grava `article.md`, `slides.json`, `caption.txt` e `report.md` em `output_dir`.
 
     Não altera o estado: devolve `{}`.
     """
-    out = Path(state["output_dir"])
-    out.mkdir(parents=True, exist_ok=True)
-
     carousel = state["carousel"]
     caption = carousel.caption.strip()
     if carousel.hashtags:
         caption += "\n\n" + " ".join(carousel.hashtags)
 
-    files = {
-        "article.md": state["article"].to_markdown(),
-        "slides.json": carousel.model_dump_json(indent=2) + "\n",
-        "caption.txt": caption + "\n",
-        "report.md": build_report(state),
-    }
-    for name, content in files.items():
-        (out / name).write_text(content, encoding="utf-8")
+    _write(
+        state,
+        {
+            "article.md": state["article"].to_markdown(),
+            "slides.json": carousel.model_dump_json(indent=2) + "\n",
+            "caption.txt": caption + "\n",
+            "report.md": build_report(state),
+        },
+    )
+    return {}
+
+
+def export_report(state: PipelineState) -> dict:
+    """Grava só o `report.md`: o pipeline terminou sem artigo aprovado.
+
+    Usado quando a fonte é irrelevante ou o autor rejeita o artigo depois do limite de
+    reescritas, para que o motivo do encerramento fique registrado. Devolve `{}`.
+    """
+    _write(state, {"report.md": build_report(state)})
     return {}

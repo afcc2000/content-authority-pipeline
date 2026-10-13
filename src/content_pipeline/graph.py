@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 
 from content_pipeline.carousel.subgraph import build_carousel_subgraph
 from content_pipeline.deps import Deps
-from content_pipeline.export import export
+from content_pipeline.export import export, export_report
 from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, Slide
 from content_pipeline.nodes import (
     interview,
@@ -42,7 +42,8 @@ def build_graph(deps: Deps, checkpointer=None):
     """Monta e compila o grafo do pipeline.
 
     START -> [research] -> ingest -> analyze -> [interview]* -> write_article <-> approval
-    -> design_carousel (subgrafo) -> export -> END.
+    -> design_carousel (subgrafo) -> export -> END. Fonte irrelevante e `reject` após o limite
+    de reescritas vão para export_report (só o relatório) -> END.
 
     Args:
         deps: Dependências injetadas nos nós (LLM, imagens, settings, fetch, search).
@@ -57,6 +58,7 @@ def build_graph(deps: Deps, checkpointer=None):
     builder.add_node("approval", make_approval(deps))
     builder.add_node("design_carousel", build_carousel_subgraph(deps))
     builder.add_node("export", export)
+    builder.add_node("export_report", export_report)
 
     builder.add_conditional_edges(START, route_start, ["research", "ingest"])
     builder.add_edge("research", "ingest")
@@ -66,4 +68,5 @@ def build_graph(deps: Deps, checkpointer=None):
     builder.add_edge("write_article", "approval")  # approval roteia sozinho via Command
     builder.add_edge("design_carousel", "export")
     builder.add_edge("export", END)
+    builder.add_edge("export_report", END)
     return builder.compile(checkpointer=checkpointer)

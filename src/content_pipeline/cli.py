@@ -96,8 +96,11 @@ def report(result: dict) -> None:
         )
     for warning in result.get("warnings") or []:
         typer.secho(f"Aviso: {warning}", fg=typer.colors.YELLOW)
-    if (Path(result["output_dir"]) / "article.md").exists():
-        typer.secho(f"\nPronto! Arquivos em: {result['output_dir']}", fg=typer.colors.GREEN)
+    out = Path(result["output_dir"])
+    if (out / "article.md").exists():
+        typer.secho(f"\nPronto! Arquivos em: {out}", fg=typer.colors.GREEN)
+    elif (out / "report.md").exists():
+        typer.echo(f"\nRelatório em: {out / 'report.md'}")
 
 
 def run_pipeline(initial: dict, dry_run: bool, out: Path) -> None:

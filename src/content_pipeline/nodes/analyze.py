@@ -2,8 +2,6 @@
 
 from typing import Literal
 
-from langgraph.graph import END
-
 from content_pipeline.deps import Deps
 from content_pipeline.models import Briefing
 from content_pipeline.nodes.common import ask
@@ -26,6 +24,6 @@ def make_analyze(deps: Deps):
     return analyze
 
 
-def route_after_analyze(state: PipelineState) -> Literal["interview", "__end__"]:
-    """Fonte irrelevante termina o pipeline aqui; relevante segue para a entrevista."""
-    return "interview" if state["briefing"].is_relevant else END
+def route_after_analyze(state: PipelineState) -> Literal["interview", "export_report"]:
+    """Fonte relevante segue para a entrevista; irrelevante só grava o relatório e termina."""
+    return "interview" if state["briefing"].is_relevant else "export_report"

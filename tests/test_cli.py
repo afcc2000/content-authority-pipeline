@@ -88,3 +88,23 @@ def test_demo_responde_entrevista_e_aprovacao_ate_exportar(
     assert "Pergunta 1/2" in result.output and "Pergunta 2/2" in result.output
     assert "Pronto! Arquivos em:" in result.output
     assert len(list(sem_dotenv.rglob("article.md"))) == 1
+
+
+def test_demo_com_fonte_irrelevante_mostra_onde_esta_o_relatorio(
+    sem_dotenv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from content_pipeline import cli
+    from content_pipeline.models import Briefing
+    from tests.fakes import FakeStructuredLLM, make_briefing
+
+    fake = FakeStructuredLLM({Briefing: [make_briefing(relevant=False)]})
+    monkeypatch.setattr(cli, "LangChainStructuredLLM", lambda model: fake)
+    monkeypatch.setattr(cli, "SAMPLE_INPUT", SAMPLE)
+    monkeypatch.setenv("PROMPTS_DIR", str(SAMPLE.parents[1] / "prompts"))
+
+    result = runner.invoke(app, ["demo", "--out", str(sem_dotenv)])
+
+    assert result.exit_code == 0, result.output
+    assert "Conteúdo fora dos temas do autor" in result.output
+    assert "Relatório em:" in result.output
+    assert "Pronto!" not in result.output

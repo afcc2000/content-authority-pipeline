@@ -51,6 +51,36 @@ def test_fonte_irrelevante_nao_cria_article_md(tmp_path: Path) -> None:
     assert list(tmp_path.rglob("article.md")) == []
 
 
+def arquivos(out: Path) -> list[str]:
+    return sorted(p.name for p in out.iterdir() if p.is_file())
+
+
+def test_fonte_irrelevante_grava_so_o_relatorio_com_o_motivo(tmp_path: Path) -> None:
+    briefing = make_briefing(relevant=False)
+    llm = FakeStructuredLLM({Briefing: [briefing]})
+    graph = build_graph(make_deps(tmp_path, llm=llm), checkpointer=make_checkpointer())
+
+    final = graph.invoke({"source_text": "Texto da fonte."}, config())
+
+    out = Path(final["output_dir"])
+    report = (out / "report.md").read_text(encoding="utf-8")
+    assert arquivos(out) == ["report.md"]
+    assert f"- **Relevante:** não. {briefing.relevance_reason}" in report
+    assert "## Entrevista" not in report  # não houve entrevista
+
+
+def test_reject_no_limite_grava_so_o_relatorio_com_feedback_e_aviso(tmp_path: Path) -> None:
+    _llm, graph, _ = run_interview(tmp_path, ["a", "b"], max_rewrites=0)
+
+    final = graph.invoke(Command(resume={"action": "reject", "feedback": "Não gostei."}), config())
+
+    out = Path(final["output_dir"])
+    report = (out / "report.md").read_text(encoding="utf-8")
+    assert arquivos(out) == ["report.md"]
+    assert "- **Último feedback do autor:** Não gostei." in report
+    assert "Artigo rejeitado após o limite de 0 reescrita(s)." in report
+
+
 def test_relatorio_tem_entrevista_e_avisos() -> None:
     state = {
         "source_url": "https://exemplo.com/post",

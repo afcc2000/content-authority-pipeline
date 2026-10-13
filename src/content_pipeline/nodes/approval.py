@@ -11,7 +11,6 @@ rota separada. Respostas aceitas no `Command(resume=...)`:
 import re
 from typing import Literal
 
-from langgraph.graph import END
 from langgraph.types import Command, interrupt
 
 from content_pipeline.deps import Deps
@@ -52,7 +51,7 @@ def make_approval(deps: Deps):
 
     def approval(
         state: PipelineState,
-    ) -> Command[Literal["design_carousel", "write_article", "__end__"]]:
+    ) -> Command[Literal["design_carousel", "write_article", "export_report"]]:
         article = state["article"]
         rewrites = state.get("rewrites") or 0
         can_reject = rewrites < max_rewrites
@@ -90,7 +89,7 @@ def make_approval(deps: Deps):
                 )
             warning = f"Artigo rejeitado após o limite de {max_rewrites} reescrita(s)."
             return Command(
-                goto=END,
+                goto="export_report",
                 update={
                     "decision": "reject",
                     "feedback": feedback,
