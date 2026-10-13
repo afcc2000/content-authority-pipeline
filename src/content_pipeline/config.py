@@ -34,3 +34,4 @@ class Settings(BaseSettings):
     caption_max_chars: int = 2200
     max_hashtags: int = 5
     image_aspect_ratio: str = "4:5"
+    blog_url: str | None = None  # se definido, a legenda precisa conter este link

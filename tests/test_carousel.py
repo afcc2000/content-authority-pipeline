@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from content_pipeline.carousel.planner import build_carousel_request
 from content_pipeline.carousel.subgraph import build_carousel_subgraph
 from content_pipeline.deps import Deps
 from content_pipeline.images import FakeImageGenerator
@@ -60,3 +61,23 @@ def test_pedido_do_carrossel_tem_limites_de_settings_e_artigo(tmp_path: Path) ->
     assert "No máximo 5 hashtags." in user
     assert "<artigo>\n# Título do artigo" in user
     assert "Identidade visual" in system  # carousel_brand entra no system
+
+
+def make_request(**settings_overrides) -> str:
+    """Monta o pedido do carrossel sem rodar o subgrafo."""
+    deps = Deps(
+        llm=FakeStructuredLLM({}),
+        images=FakeImageGenerator(),
+        settings=make_settings(**settings_overrides),
+    )
+    return build_carousel_request({"article": make_article()}, deps)
+
+
+def test_pedido_do_carrossel_inclui_o_link_do_blog() -> None:
+    url = "https://meublog.com/artigo"
+
+    assert f"A legenda deve conter o link do blog: {url}" in make_request(blog_url=url)
+
+
+def test_pedido_do_carrossel_sem_blog_url_nao_cita_link() -> None:
+    assert "link do blog" not in make_request()

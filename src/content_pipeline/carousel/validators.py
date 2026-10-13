@@ -42,6 +42,13 @@ def check_caption(plan: CarouselPlan, max_chars: int, max_hashtags: int) -> list
     return errors
 
 
+def check_blog_link(plan: CarouselPlan, blog_url: str | None) -> list[str]:
+    """Confere se a legenda contém `blog_url`; sem `blog_url` (ou vazio), a regra não se aplica."""
+    if not blog_url or blog_url in plan.caption:
+        return []
+    return [f"A legenda não contém o link do blog ({blog_url})."]
+
+
 def check_slides_complete(plan: CarouselPlan) -> list[str]:
     """Confere se os índices são 1..n em ordem e se nenhum slide tem headline ou imagem vazia."""
     errors = []
@@ -63,5 +70,6 @@ def validate_carousel(plan: CarouselPlan, settings: Settings) -> list[str]:
         *check_headlines(plan, settings.headline_max_chars),
         *check_cta(plan),
         *check_caption(plan, settings.caption_max_chars, settings.max_hashtags),
+        *check_blog_link(plan, settings.blog_url),
         *check_slides_complete(plan),
     ]

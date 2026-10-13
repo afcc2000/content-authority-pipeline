@@ -30,6 +30,7 @@ def test_padroes_sem_env_file() -> None:
     assert settings.caption_max_chars == 2200
     assert settings.max_hashtags == 5
     assert settings.image_aspect_ratio == "4:5"
+    assert settings.blog_url is None
 
 
 def test_variavel_de_ambiente_sobrescreve_padrao(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -21,6 +21,8 @@ def build_carousel_request(state: PipelineState, deps: Deps) -> str:
         f"- No máximo {s.max_hashtags} hashtags.",
         "- `cta_text` obrigatório.",
     ]
+    if s.blog_url:
+        limits.append(f"- A legenda deve conter o link do blog: {s.blog_url}")
     parts = [
         "Crie o carrossel de Instagram para o artigo abaixo.",
         "\n".join(limits),
