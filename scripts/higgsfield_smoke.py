@@ -20,6 +20,7 @@ ARGUMENTS = {
 
 
 def main() -> int:
+    """Gera uma imagem e devolve o código de saída: 0 se concluiu, 1 se falhou."""
     load_dotenv(find_dotenv(usecwd=True))
     if not os.getenv("HF_KEY"):
         print("Erro: HF_KEY não está no .env (formato key-id:key-secret).", file=sys.stderr)
