@@ -26,10 +26,22 @@ def check_headlines(plan: CarouselPlan, max_chars: int) -> list[str]:
 
 
 def check_cta(plan: CarouselPlan) -> list[str]:
-    """Confere se há chamada para o blog."""
+    """Confere se `cta_text` (a chamada para ler o artigo no blog) não está vazio."""
     if plan.cta_text.strip():
         return []
     return ["A chamada para o blog (cta_text) está vazia."]
+
+
+def check_blog_link(plan: CarouselPlan, blog_url: str | None) -> list[str]:
+    """Confere se a legenda contém `blog_url`; sem `blog_url` (ou vazio), a regra não se aplica."""
+    if not blog_url or blog_url in plan.caption:
+        return []
+    return [f"A legenda não contém o link do blog ({blog_url})."]
+
+
+def check_blog_call(plan: CarouselPlan, blog_url: str | None) -> list[str]:
+    """Junta as regras que levam o leitor ao blog: a chamada (`cta_text`) e o link na legenda."""
+    return [*check_cta(plan), *check_blog_link(plan, blog_url)]
 
 
 def check_caption(plan: CarouselPlan, max_chars: int, max_hashtags: int) -> list[str]:
@@ -40,13 +52,6 @@ def check_caption(plan: CarouselPlan, max_chars: int, max_hashtags: int) -> list
     if len(plan.hashtags) > max_hashtags:
         errors.append(f"{len(plan.hashtags)} hashtags (máximo {max_hashtags}).")
     return errors
-
-
-def check_blog_link(plan: CarouselPlan, blog_url: str | None) -> list[str]:
-    """Confere se a legenda contém `blog_url`; sem `blog_url` (ou vazio), a regra não se aplica."""
-    if not blog_url or blog_url in plan.caption:
-        return []
-    return [f"A legenda não contém o link do blog ({blog_url})."]
 
 
 def check_slides_complete(plan: CarouselPlan) -> list[str]:
@@ -68,8 +73,7 @@ def validate_carousel(plan: CarouselPlan, settings: Settings) -> list[str]:
     return [
         *check_slide_count(plan, settings.min_slides, settings.max_slides),
         *check_headlines(plan, settings.headline_max_chars),
-        *check_cta(plan),
+        *check_blog_call(plan, settings.blog_url),
         *check_caption(plan, settings.caption_max_chars, settings.max_hashtags),
-        *check_blog_link(plan, settings.blog_url),
         *check_slides_complete(plan),
     ]
