@@ -1,0 +1,7 @@
+Os Dots, anunciados pela OpenAI no DevDay 2026, apontam para uma forma diferente de trabalhar com IA: atribuir um objetivo a um agente que pode atuar continuamente nos aplicativos conectados.
+
+Uma boa primeira delegação pode ser uma tarefa recorrente e verificável, como preparar atas e destacar pendências. Mas acesso a informações não significa autorização para agir em tudo: defina o que pode ser feito automaticamente e o que precisa da sua aprovação.
+
+Leia o artigo completo no blog para entender como explorar essa proposta sem confundir autonomia com ausência de supervisão.
+
+#InteligenciaArtificial #AgentesDeIA #Automacao #Produtividade #OpenAI

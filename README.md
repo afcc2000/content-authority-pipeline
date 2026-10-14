@@ -13,6 +13,7 @@ interface plugável. Um modo `dry-run` roda tudo sem chamar a API de imagem.
 ## Sumário
 
 - [Como funciona](#como-funciona)
+- [Demonstração](#demonstração)
 - [Arquitetura](#arquitetura)
 - [Tecnologias](#tecnologias)
 - [Pré-requisitos](#pré-requisitos)
@@ -45,6 +46,42 @@ interface plugável. Um modo `dry-run` roda tudo sem chamar a API de imagem.
    para o blog) validam o plano; se falharem, o LLM corrige a partir da lista de erros.
 7. **Saída:** artigo, slides, legenda, imagens (ou seus prompts, em dry-run) e um relatório da
    execução numa pasta própria.
+
+## Demonstração
+
+Execução real com o link do [resumo do DevDay 2026](https://openai.com/pt-BR/index/devday-2026-recap)
+e a direção "falar em especial sobre o anúncio dos Dots" (a espera da geração das imagens foi
+cortada do GIF):
+
+![Execução do pipeline no terminal](docs/img/demo.gif)
+
+A saída completa dessa execução está em [`examples/devday-2026/`](examples/devday-2026/):
+
+- [`article.md`](examples/devday-2026/article.md): o artigo aprovado;
+- [`slides.json`](examples/devday-2026/slides.json): headlines, textos e prompts de imagem dos
+  7 slides;
+- [`caption.txt`](examples/devday-2026/caption.txt): a legenda com hashtags;
+- [`report.md`](examples/devday-2026/report.md): fonte, relevância, entrevista, direção e
+  decisão;
+- [`images/`](examples/devday-2026/images/): as imagens geradas pela Higgsfield (Soul, 3:4),
+  reduzidas para JPG 1080×1440 para não pesar no repositório (a saída original é PNG
+  1536×2048).
+
+As imagens são fundos sem texto: a headline e o texto de cada slide ficam no `slides.json`,
+para serem aplicados na diagramação.
+
+| Slide 1 | Slide 3 | Slide 7 |
+| :---: | :---: | :---: |
+| <img src="examples/devday-2026/images/slide_01.jpg" width="220" alt="Slide 1"> | <img src="examples/devday-2026/images/slide_03.jpg" width="220" alt="Slide 3"> | <img src="examples/devday-2026/images/slide_07.jpg" width="220" alt="Slide 7"> |
+| A IA pode deixar de responder — e começar a assumir tarefas. | Uma tarefa recorrente: cuidar do pós-reunião. | Comece pequeno. Observe. Ajuste. |
+
+O trace da mesma execução no LangSmith, na visão de thread: cada retomada depois de uma pausa
+(direção, perguntas, aprovação) é um turno, e dentro deles aparecem os nós do grafo (`ingest`,
+`ask_direction`, `approval`, `design_carousel` → `plan_slides`...) com tempo, tokens e custo. À
+direita, a chamada ao LLM que planeja o carrossel. As chamadas de texto somaram cerca de
+US$ 0,004; as imagens são cobradas à parte, na Higgsfield.
+
+![Trace da execução no LangSmith](docs/img/langsmith-trace.png)
 
 ## Arquitetura
 
@@ -280,7 +317,8 @@ content-authority-pipeline/
 ├── prompts/              # contexto do autor, estilo do artigo, marca e regras do carrossel
 ├── tests/                # testes com LLM e gerador de imagem falsos (tests/fakes.py)
 ├── samples/              # entrada de exemplo do comando demo
-└── docs/                 # projeto, roteiro, tickets e log de uso de IA
+├── examples/             # saída de uma execução real (artigo, slides, legenda, relatório)
+└── docs/                 # projeto, roteiro, tickets, log de uso de IA e img/ (GIF e trace)
 ```
 
 ## Testes

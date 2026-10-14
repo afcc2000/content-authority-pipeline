@@ -1,0 +1,55 @@
+{
+  "slides": [
+    {
+      "index": 1,
+      "headline": "A IA pode deixar de responder — e começar a assumir tarefas.",
+      "body": null,
+      "image_prompt": "Imagem editorial minimalista sobre IA e trabalho: uma pessoa diante de uma mesa organizada, com pequenos pontos luminosos conectando discretamente tarefas e ferramentas ao redor. Estilo consistente de fotografia natural com acabamento contemporâneo, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, composição vertical com espaço negativo amplo para texto. Sem palavras, letras, logotipos ou interfaces legíveis."
+    },
+    {
+      "index": 2,
+      "headline": "A mudança é passar de perguntas a responsabilidades.",
+      "body": "Um agente contínuo recebe um objetivo e pode trabalhar ao longo do tempo.",
+      "image_prompt": "Fundo editorial minimalista mostrando uma sequência de pontos luminosos conectados, sugerindo continuidade e trabalho em andamento, sem parecer uma interface. Fotografia natural com acabamento contemporâneo, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, composição vertical com espaço negativo amplo para texto. Sem palavras, letras, logotipos ou interfaces legíveis."
+    },
+    {
+      "index": 3,
+      "headline": "Uma tarefa recorrente: cuidar do pós-reunião.",
+      "body": "Buscar transcrições, preparar atas e resumos e lembrar as pendências.",
+      "image_prompt": "Mesa de reunião após o encontro, com cadeiras vazias, caderno fechado e computador sem conteúdo legível; pequenos pontos luminosos sugerem tarefas organizadas. Estilo editorial minimalista, fotografia natural, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, enquadramento vertical com espaço negativo para texto. Sem palavras, letras ou logotipos."
+    },
+    {
+      "index": 4,
+      "headline": "Delegue o que você consegue conferir.",
+      "body": "Resultados claros ajudam a revisar o que o agente fez.",
+      "image_prompt": "Cena editorial de uma pessoa revisando papéis organizados ao lado de um computador, com atenção a uma lista visual abstrata sem texto legível. Fotografia natural com acabamento contemporâneo, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, composição vertical com espaço negativo para texto. Sem palavras, letras, logotipos ou interfaces legíveis."
+    },
+    {
+      "index": 5,
+      "headline": "Acesso e autorização são coisas diferentes.",
+      "body": "Consultar uma transcrição não é o mesmo que enviar uma mensagem.",
+      "image_prompt": "Imagem conceitual editorial de uma mão diante de dois caminhos visuais distintos: um arquivo protegido e uma ação de envio representada apenas por formas abstratas, sem ícones ou texto legível. Estilo minimalista, fotografia natural, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, composição vertical com espaço negativo para texto."
+    },
+    {
+      "index": 6,
+      "headline": "Autonomia precisa de limites claros.",
+      "body": "Defina o que o agente pode fazer e quando deve pedir sua aprovação.",
+      "image_prompt": "Pessoa ajustando cuidadosamente pequenos objetos conectados por pontos luminosos, imagem simbólica de controle e limites na automação. Estilo editorial minimalista, fotografia natural com acabamento contemporâneo, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, enquadramento vertical com espaço negativo amplo para texto. Sem palavras, letras, logotipos ou interfaces legíveis."
+    },
+    {
+      "index": 7,
+      "headline": "Comece pequeno. Observe. Ajuste.",
+      "body": "Leia o artigo completo no blog para explorar a proposta dos Dots.",
+      "image_prompt": "Cena editorial serena de uma pessoa analisando o resultado de um trabalho em uma mesa organizada, com pequenos pontos luminosos ao fundo sugerindo próximos passos. Estilo minimalista, fotografia natural, paleta sóbria de azul-escuro, neutros claros e azul suave, iluminação difusa, composição vertical com espaço negativo para texto. Sem palavras, letras, logotipos ou interfaces legíveis."
+    }
+  ],
+  "caption": "Os Dots, anunciados pela OpenAI no DevDay 2026, apontam para uma forma diferente de trabalhar com IA: atribuir um objetivo a um agente que pode atuar continuamente nos aplicativos conectados.\n\nUma boa primeira delegação pode ser uma tarefa recorrente e verificável, como preparar atas e destacar pendências. Mas acesso a informações não significa autorização para agir em tudo: defina o que pode ser feito automaticamente e o que precisa da sua aprovação.\n\nLeia o artigo completo no blog para entender como explorar essa proposta sem confundir autonomia com ausência de supervisão.",
+  "hashtags": [
+    "#InteligenciaArtificial",
+    "#AgentesDeIA",
+    "#Automacao",
+    "#Produtividade",
+    "#OpenAI"
+  ],
+  "cta_text": "Leia o artigo completo no blog."
+}
