@@ -16,6 +16,12 @@ def test_prompt_existe_e_nao_esta_vazio(name: str) -> None:
     assert load_prompt(name, PROMPTS_DIR)
 
 
+def test_estilo_do_artigo_proibe_comentar_pergunta_pulada() -> None:
+    # Na execução real, o artigo publicado dizia "Eu pulei a pergunta sobre...".
+    style = load_prompt("article_style", PROMPTS_DIR)
+    assert "não mencione no texto que ele pulou" in style
+
+
 def test_prompt_inexistente_levanta_erro_com_nome_do_arquivo(tmp_path: Path) -> None:
     with pytest.raises(PromptNotFoundError, match="nao_existe.md"):
         load_prompt("nao_existe", tmp_path)

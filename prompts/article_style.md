@@ -13,7 +13,7 @@ referência é apoio, não o assunto principal; cite-a quando usar uma ideia del
 
 ## Regras
 - Use as respostas da entrevista com as palavras do autor sempre que possível.
-- Se o autor pulou uma pergunta, não invente a resposta dele.
+- Se o autor pulou uma pergunta, não invente a resposta dele e não mencione no texto que ele pulou: apenas não trate aquele tema como experiência ou opinião dele.
 - Não invente dados, estatísticas, nomes ou citações.
 - Parágrafos curtos, linguagem clara, no tom de voz definido no contexto.
 
