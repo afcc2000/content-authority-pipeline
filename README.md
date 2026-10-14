@@ -33,7 +33,8 @@ interface plugável. Um modo `dry-run` roda tudo sem chamar a API de imagem.
 2. **Relevância:** o LLM decide se a fonte combina com os temas do autor (`prompts/context.md`).
    Se não combinar, o pipeline para e grava um relatório com o motivo.
 3. **Entrevista:** o pipeline pausa e faz ao autor, uma por vez, as perguntas do briefing. São as
-   contribuições pessoais que transformam um resumo num artigo de autoridade.
+   contribuições pessoais que transformam um resumo num artigo de autoridade. A última pergunta é
+   sempre aberta: a direção que o autor quer dar ao artigo, que prevalece sobre o ângulo sugerido.
 4. **Artigo:** o LLM escreve o artigo; o autor aceita, edita no próprio arquivo ou rejeita com
    feedback (o artigo é reescrito, até um limite de reescritas).
 5. **Carrossel:** com o artigo aprovado, o LLM planeja os slides e a legenda. Regras
@@ -233,6 +234,7 @@ Informe exatamente uma fonte. Opções:
 Durante a execução o pipeline pausa duas vezes:
 
 1. **Entrevista:** cada pergunta aparece como `Pergunta i/n`; responda ou tecle Enter para pular.
+   A última é aberta: diga o que o artigo deve enfatizar, evitar ou defender.
 2. **Aprovação:** o artigo é mostrado e você escolhe `accept`, `edit` (o artigo é salvo em
    `article_draft.md`; edite, salve e tecle Enter) ou `reject` (escreva o que deve mudar; a opção
    some quando o limite de reescritas acaba).

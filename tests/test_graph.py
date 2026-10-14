@@ -11,6 +11,7 @@ from content_pipeline.images import FakeImageGenerator
 from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, SourceChoice
 from content_pipeline.nodes.approval import article_from_markdown
 from content_pipeline.nodes.ingest import make_ingest, slugify
+from content_pipeline.nodes.interview import DIRECTION_QUESTION
 from content_pipeline.nodes.write_article import build_article_request
 from tests.fakes import (
     FakeStructuredLLM,
@@ -116,12 +117,16 @@ def test_fonte_relevante_pausa_uma_vez_por_pergunta(tmp_path: Path) -> None:
 
     primeira = graph.invoke({"source_text": "Texto da fonte."}, config())
     segunda = graph.invoke(Command(resume="contribuição 1"), config())
-    final = graph.invoke(Command(resume=""), config())
+    terceira = graph.invoke(Command(resume=""), config())
+    final = graph.invoke(Command(resume="Enfatize o lado prático."), config())
 
-    payloads = [primeira["__interrupt__"][0].value, segunda["__interrupt__"][0].value]
-    assert [p["index"] for p in payloads] == [1, 2]
+    payloads = [r["__interrupt__"][0].value for r in (primeira, segunda, terceira)]
+    assert [p["index"] for p in payloads] == [1, 2, 3]
+    assert {p["total"] for p in payloads} == {3}  # 2 do briefing + a pergunta de direção
+    assert payloads[2]["question"] == DIRECTION_QUESTION
     assert final["__interrupt__"][0].value["type"] == "approval"  # a entrevista acabou
     assert final["answers"] == ["contribuição 1", ""]
+    assert final["author_direction"] == "Enfatize o lado prático."
 
 
 def test_payload_do_interrupt_tem_os_campos_do_contrato(tmp_path: Path) -> None:
@@ -134,7 +139,7 @@ def test_payload_do_interrupt_tem_os_campos_do_contrato(tmp_path: Path) -> None:
     assert result["__interrupt__"][0].value == {
         "type": "question",
         "index": 1,
-        "total": 2,
+        "total": 3,
         "question": briefing.questions[0],
     }
 
@@ -166,9 +171,12 @@ def run_interview(
     articles: list[Article] | None = None,
     carousels: list[CarouselPlan] | None = None,
     images: FakeImageGenerator | None = None,
+    direction: str = "",
     **settings_overrides,
 ):
     """Roda o grafo com fonte relevante até a 1ª aprovação, respondendo a entrevista.
+
+    Responde `answers` e, depois, a pergunta de direção com `direction` ("" = pulou).
 
     Returns:
         (llm falso, grafo compilado, resultado do último `invoke`).
@@ -187,9 +195,37 @@ def run_interview(
     graph = build_graph(deps, checkpointer=make_checkpointer())
     graph.invoke({"source_text": "Texto da fonte."}, config())
     final: dict = {}
-    for answer in answers:
+    for answer in [*answers, direction]:
         final = graph.invoke(Command(resume=answer), config())
     return llm, graph, final
+
+
+def test_direcao_do_autor_vai_para_o_pedido_com_prioridade(tmp_path: Path) -> None:
+    llm, _graph, _final = run_interview(tmp_path, ["a", "b"], direction="Defenda a tese X.")
+
+    _schema, _system, user = llm.calls[1]
+    assert "## Direção do autor (prioridade)\nDefenda a tese X." in user
+    assert "prevalece sobre o ângulo sugerido" in user
+    assert user.index("Direção do autor") < user.index("<fonte>")  # antes da fonte
+
+
+def test_direcao_pulada_nao_cria_a_secao(tmp_path: Path) -> None:
+    llm, graph, _final = run_interview(tmp_path, ["a", "b"])
+
+    _schema, _system, user = llm.calls[1]
+    assert "Direção do autor" not in user
+    assert graph.get_state(config()).values["author_direction"] == ""
+
+
+def test_reescrita_mantem_a_direcao_do_autor(tmp_path: Path) -> None:
+    llm, graph, _ = run_interview(
+        tmp_path, ["a", "b"], articles=[make_article(), make_article()], direction="Seja direto."
+    )
+
+    graph.invoke(Command(resume={"action": "reject", "feedback": "Mais curto."}), config())
+
+    _schema, _system, user = llm.calls[2]  # 2ª escrita do artigo
+    assert "Seja direto." in user and "Mais curto." in user
 
 
 def test_resposta_da_entrevista_vai_para_o_prompt_do_artigo(tmp_path: Path) -> None:

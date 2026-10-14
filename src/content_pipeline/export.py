@@ -32,6 +32,9 @@ def build_report(state: PipelineState) -> str:
     for question, answer in zip(briefing.questions, answers, strict=False):
         lines += ["", f"**{question}**", "", answer or "(pulou)"]
 
+    if state.get("author_direction"):
+        lines += ["", "## Direção do autor", "", state["author_direction"]]
+
     warnings = state.get("warnings") or []
     if warnings:
         lines += ["", "## Avisos", "", *(f"- {warning}" for warning in warnings)]

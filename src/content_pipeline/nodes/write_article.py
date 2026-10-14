@@ -28,8 +28,14 @@ def build_article_request(state: PipelineState) -> str:
         f"## Pontos-chave\n{key_points}",
         f"## Ângulo sugerido\n{briefing.angle}",
         f"## Entrevista com o autor\n{interview}",
-        source_block(state),
     ]
+    direction = state.get("author_direction")
+    if direction:
+        parts.append(
+            f"## Direção do autor (prioridade)\n{direction}\n\n"
+            "Siga esta direção: ela prevalece sobre o ângulo sugerido."
+        )
+    parts.append(source_block(state))
 
     feedback = state.get("feedback")
     previous = state.get("article")

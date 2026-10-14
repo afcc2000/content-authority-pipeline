@@ -105,6 +105,16 @@ def test_relatorio_tem_entrevista_e_avisos() -> None:
     assert "## Avisos\n\n- Carrossel seguiu com erros." in report
 
 
+def test_relatorio_mostra_a_direcao_do_autor_so_quando_houver() -> None:
+    state = {"briefing": make_briefing(), "answers": ["a", "b"], "source_text": "Texto."}
+
+    com = build_report({**state, "author_direction": "Defenda a tese X."})
+    sem = build_report({**state, "author_direction": ""})
+
+    assert "## Direção do autor\n\nDefenda a tese X." in com
+    assert "Direção do autor" not in sem
+
+
 def test_relatorio_sem_avisos_nao_tem_a_secao() -> None:
     state = {"briefing": make_briefing(), "answers": ["a", "b"], "source_text": "Texto."}
 

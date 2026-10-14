@@ -20,6 +20,7 @@ class PipelineState(TypedDict, total=False):
     source_title: str | None
     briefing: Briefing
     answers: list[str]
+    author_direction: str  # resposta à pergunta aberta de direção ("" se o autor pulou)
     article: Article
     decision: Literal["accept", "edit", "reject"]
     feedback: str | None

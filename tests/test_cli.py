@@ -85,7 +85,8 @@ def test_demo_responde_entrevista_e_aprovacao_ate_exportar(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Pergunta 1/2" in result.output and "Pergunta 2/2" in result.output
+    assert "Pergunta 1/3" in result.output and "Pergunta 2/3" in result.output
+    assert "Pergunta 3/3" in result.output  # a pergunta de direção ("x" é a resposta)
     assert "Pronto! Arquivos em:" in result.output
     assert len(list(sem_dotenv.rglob("article.md"))) == 1
 
