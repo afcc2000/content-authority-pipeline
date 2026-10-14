@@ -1,14 +1,16 @@
 # Content Authority Pipeline
 
-Um pipeline em LangGraph que recebe o link de um conteúdo, verifica se ele é relevante para o
-contexto configurado e gera um briefing. Em seguida entrevista o autor (com `interrupt`) para
-coletar suas contribuições e escreve um artigo de autoridade em Markdown, que o autor pode
+Um pipeline em LangGraph que recebe o link de um conteúdo, pergunta ao autor que direção ele
+quer dar ao artigo, verifica se a fonte é relevante para o contexto configurado e gera um
+briefing guiado por essa direção. Em seguida entrevista o autor (com `interrupt`) para coletar
+suas contribuições e escreve um artigo de autoridade em Markdown, que o autor pode
 aceitar, editar ou rejeitar com feedback. Aprovado o artigo, um subgrafo gera um carrossel de
 Instagram (slides com frases curtas e chamada para o blog) e a legenda, seguindo uma identidade
 visual definida em arquivos de prompt, com validação automática e geração de imagem por uma
 interface plugável. Um modo `dry-run` roda tudo sem chamar a API de imagem.
 
-> 🚧 **Em construção.** Miniprojeto do Microcurso 4 (AKCIT · Engenharia de Software com IA).
+> Miniprojeto do Microcurso 4 (AKCIT · Engenharia de Software com IA) · versão 1.0.0 · veja o
+> [CHANGELOG](CHANGELOG.md).
 
 ## Sumário
 
@@ -254,7 +256,9 @@ Limites ajustáveis no mesmo `.env` (padrão entre parênteses): `MAX_REWRITES` 
 (`prompts`).
 
 Os textos que definem o autor, o estilo do artigo e a identidade visual ficam em `prompts/*.md` e
-podem ser editados sem mexer no código.
+podem ser editados sem mexer no código. `prompts/context.md` e `prompts/carousel_brand.md` vêm
+como templates: troque cada campo `<...>` pelo seu contexto (autor, público, temas, tom) e pela
+sua identidade visual (paleta, tipografia, estilo de imagem) antes de usar de verdade.
 
 ## Uso
 
@@ -416,14 +420,21 @@ e registradas). Não medi o tempo gasto, então não estimo ganho em horas.
   da Meta cortam para 4:5. Um modelo com 4:5 nativo (ex.: Recraft, que também aceita a paleta de
   cores da marca) pode ser configurado em `IMAGE_MODEL` depois de testado.
 - **Consistência visual entre slides.** Cada imagem é gerada de forma independente.
+- **Texto nas imagens.** Mesmo com o prompt pedindo "sem palavras, letras ou interfaces
+  legíveis", o modelo às vezes desenha pseudo-letras (ex.: o slide 2 do exemplo). Vale revisar
+  as imagens antes de publicar.
 - **Checkpoint em memória.** Uma execução interrompida não pode ser retomada depois (E3:
   checkpoint persistente).
 - **Carrossel como agente.** O planejamento dos slides e a geração de imagem poderiam virar um
   agente com a imagem como ferramenta (E2).
-- **Avaliação no LangSmith.** O dataset e os avaliadores (T23) estão planejados para depois que
-  os prompts pessoais estiverem prontos.
-- **Prompts pessoais.** `prompts/context.md` e `prompts/carousel_brand.md` ainda são provisórios
-  (T17).
+- **Prompts como templates.** `prompts/context.md`, `prompts/carousel_brand.md` e os exemplos
+  de abertura de `prompts/article_style.md` são publicados como modelos, com campos `<...>` a
+  preencher: por decisão do autor, o contexto pessoal dele não fica no repositório público.
+  Enquanto houver campos `<...>`, o pipeline usa um contexto genérico (por isso o exemplo julga
+  a relevância "pelo critério geral"). Para usar de verdade, preencha esses arquivos com o seu
+  contexto e a sua identidade visual.
+- **Avaliação no LangSmith.** O dataset e os avaliadores (T23) ficaram como próximo passo: só
+  fazem sentido com textos reais e prompts preenchidos.
 - **Fora do MVP:** interface web (o MVP é CLI), publicação e agendamento em redes sociais,
   agente autônomo de pesquisa, aprendizado a partir das edições do autor, consistência visual
   garantida entre imagens, múltiplos idiomas e múltiplas redes.
