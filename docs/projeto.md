@@ -261,7 +261,13 @@ class ImageGenerator(Protocol):
 ```
 
 - `images/fake.py`: não chama nada; grava um arquivo de marcação com o prompt (ou uma imagem placeholder). Usado no `dry-run` e nos testes.
-- `images/higgsfield.py`: adaptador real. Pelo que li na documentação da Higgsfield: autenticação por `HF_API_KEY_ID` e `HF_API_KEY_SECRET`, modelo de imagem SOUL V2, aceita URLs de imagem de referência, e o trabalho é **assíncrono com polling**. **[A verificar]** endpoint exato, formato de proporção, preço e se há como garantir consistência de marca entre imagens.
+- `images/higgsfield.py`: adaptador real (E1), com o SDK oficial `higgsfield-client` **[Verificado em 2026-10-14]**:
+  - **Autenticação:** variável `HF_KEY` no formato `key-id:key-secret`, lida pelo SDK.
+  - **Fluxo:** assíncrono. O adaptador usa `submit` (recomendado pela documentação para controlar o ciclo de vida) e um polling próprio, limitado por número de consultas e por tempo, que cancela o pedido ao estourar. O polling do SDK não tem limite.
+  - **Modelo e proporção:** padrão `higgsfield-ai/soul/v2/standard`, configurável em `IMAGE_MODEL`. Os modelos Soul **recusam 4:5** na API, inclusive o Soul Standard, cuja página diz aceitar; por isso o padrão do projeto é 3:4.
+  - **Concorrência:** a conta tem limite de pedidos simultâneos, e estourá-lo devolve 400, que o SDK não repete. O adaptador gera um slide por vez.
+  - **Falha:** uma imagem que falha vira aviso no relatório mais o `.prompt.txt` do slide; o artigo aprovado não se perde.
+  - **Ainda em aberto:** preço por imagem (fica no console da Higgsfield) e consistência de marca entre imagens (o Recraft V4.1 Pro aceita paleta de cores e é candidato).
 - Outro provedor (ex.: "Nano Banana") é só mais um adaptador com a mesma assinatura.
 - A escolha vem de `IMAGE_PROVIDER` no `.env` (`fake` por padrão).
 
@@ -397,8 +403,8 @@ TAVILY_API_KEY=
 
 # Imagem: fake | higgsfield
 IMAGE_PROVIDER=fake
-HF_API_KEY_ID=
-HF_API_KEY_SECRET=
+# Higgsfield: formato key-id:key-secret (lido pelo higgsfield-client)
+HF_KEY=
 ```
 
 ---
@@ -446,7 +452,7 @@ content-authority-pipeline/
 │   ├── export.py
 │   ├── nodes/                # research, ingest, analyze, interview, write_article, approval (common.py no T22)
 │   ├── carousel/             # planner.py, subgraph.py, validators.py
-│   └── images/               # base.py, fake.py (higgsfield.py só no opcional E1)
+│   └── images/               # base.py, fake.py, higgsfield.py (E1)
 ├── tests/                    # rodam sem chave de API
 │   ├── fakes.py              # FakeStructuredLLM, respostas roteirizadas
 │   └── test_*.py             # um arquivo por módulo, criados junto com cada ticket
