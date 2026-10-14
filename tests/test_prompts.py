@@ -22,6 +22,11 @@ def test_estilo_do_artigo_proibe_comentar_pergunta_pulada() -> None:
     assert "não mencione no texto que ele pulou" in style
 
 
+def test_analyze_julga_relevancia_so_pela_fonte() -> None:
+    # A direção do autor orienta ângulo e perguntas, mas não pode "aprovar" uma fonte.
+    assert "relevância é julgada só pela fonte" in load_prompt("analyze", PROMPTS_DIR)
+
+
 def test_prompt_inexistente_levanta_erro_com_nome_do_arquivo(tmp_path: Path) -> None:
     with pytest.raises(PromptNotFoundError, match="nao_existe.md"):
         load_prompt("nao_existe", tmp_path)

@@ -79,14 +79,17 @@ def test_demo_responde_entrevista_e_aprovacao_ate_exportar(
     monkeypatch.setattr(cli, "SAMPLE_INPUT", SAMPLE)
     monkeypatch.setenv("PROMPTS_DIR", str(SAMPLE.parents[1] / "prompts"))  # cwd é o tmp_path
 
-    # 1ª pergunta respondida, 2ª pulada (Enter), ação inválida, depois accept.
+    # Direção, 1ª pergunta respondida, 2ª pulada (Enter), ação inválida, depois accept.
     result = runner.invoke(
-        app, ["demo", "--out", str(sem_dotenv)], input="Minha resposta\n\nx\naccept\n"
+        app,
+        ["demo", "--out", str(sem_dotenv)],
+        input="Seja prático\nMinha resposta\n\nx\naccept\n",
     )
 
     assert result.exit_code == 0, result.output
-    assert "Pergunta 1/3" in result.output and "Pergunta 2/3" in result.output
-    assert "Pergunta 3/3" in result.output  # a pergunta de direção ("x" é a resposta)
+    assert "Direção do artigo" in result.output
+    assert result.output.index("Direção do artigo") < result.output.index("Pergunta 1/2")
+    assert "Pergunta 2/2" in result.output
     assert "Pronto! Arquivos em:" in result.output
     assert len(list(sem_dotenv.rglob("article.md"))) == 1
 
@@ -119,7 +122,7 @@ def test_dry_run_so_quando_pedido(
     monkeypatch.setattr(cli, "SAMPLE_INPUT", SAMPLE)
     monkeypatch.setenv("PROMPTS_DIR", str(SAMPLE.parents[1] / "prompts"))
 
-    result = runner.invoke(app, [*args, "--out", str(sem_dotenv)])
+    result = runner.invoke(app, [*args, "--out", str(sem_dotenv)], input="\n")  # pula a direção
 
     assert result.exit_code == 0, result.output
     assert recebido == [dry_run_esperado]
@@ -143,7 +146,7 @@ def test_demo_com_fonte_irrelevante_mostra_onde_esta_o_relatorio(
     monkeypatch.setattr(cli, "SAMPLE_INPUT", SAMPLE)
     monkeypatch.setenv("PROMPTS_DIR", str(SAMPLE.parents[1] / "prompts"))
 
-    result = runner.invoke(app, ["demo", "--out", str(sem_dotenv)])
+    result = runner.invoke(app, ["demo", "--out", str(sem_dotenv)], input="\n")  # pula a direção
 
     assert result.exit_code == 0, result.output
     assert "Conteúdo fora dos temas do autor" in result.output

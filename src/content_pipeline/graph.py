@@ -9,6 +9,7 @@ from content_pipeline.deps import Deps
 from content_pipeline.export import export, export_report
 from content_pipeline.models import Article, Briefing, CarouselPlan, SearchResult, Slide
 from content_pipeline.nodes import (
+    ask_direction,
     interview,
     make_analyze,
     make_approval,
@@ -41,7 +42,8 @@ def make_checkpointer() -> InMemorySaver:
 def build_graph(deps: Deps, checkpointer=None):
     """Monta e compila o grafo do pipeline.
 
-    START -> [research] -> ingest -> analyze -> [interview]* -> write_article <-> approval
+    START -> [research] -> ingest -> ask_direction -> analyze -> [interview]* -> write_article
+    <-> approval
     -> design_carousel (subgrafo) -> export -> END. Fonte irrelevante e `reject` após o limite
     de reescritas vão para export_report (só o relatório) -> END.
 
@@ -52,6 +54,7 @@ def build_graph(deps: Deps, checkpointer=None):
     builder = StateGraph(PipelineState)
     builder.add_node("research", make_research(deps))
     builder.add_node("ingest", make_ingest(deps))
+    builder.add_node("ask_direction", ask_direction)
     builder.add_node("analyze", make_analyze(deps))
     builder.add_node("interview", interview)
     builder.add_node("write_article", make_write_article(deps))
@@ -62,7 +65,8 @@ def build_graph(deps: Deps, checkpointer=None):
 
     builder.add_conditional_edges(START, route_start, ["research", "ingest"])
     builder.add_edge("research", "ingest")
-    builder.add_edge("ingest", "analyze")
+    builder.add_edge("ingest", "ask_direction")
+    builder.add_edge("ask_direction", "analyze")
     builder.add_conditional_edges("analyze", route_after_analyze)
     builder.add_conditional_edges("interview", route_after_interview)
     builder.add_edge("write_article", "approval")  # approval roteia sozinho via Command

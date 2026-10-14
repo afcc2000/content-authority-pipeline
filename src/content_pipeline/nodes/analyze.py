@@ -14,11 +14,19 @@ def source_block(state: PipelineState) -> str:
     return f"Título da fonte: {title}\n\n<fonte>\n{state['source_text']}\n</fonte>"
 
 
+def build_analyze_request(state: PipelineState) -> str:
+    """Monta o pedido do briefing: a direção do autor (se houver) e a fonte delimitada."""
+    direction = state.get("author_direction")
+    if not direction:
+        return source_block(state)
+    return f"## Direção do autor\n{direction}\n\n{source_block(state)}"
+
+
 def make_analyze(deps: Deps):
     """Cria o nó `analyze`."""
 
     def analyze(state: PipelineState) -> dict:
-        briefing = ask(deps, Briefing, ["context", "analyze"], source_block(state))
+        briefing = ask(deps, Briefing, ["context", "analyze"], build_analyze_request(state))
         return {"briefing": briefing}
 
     return analyze

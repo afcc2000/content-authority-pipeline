@@ -31,6 +31,15 @@ def ask_question(payload: dict) -> str:
     return typer.prompt("Sua resposta (Enter para pular)", default="", show_default=False)
 
 
+def ask_direction(payload: dict) -> str:
+    """Mostra a pergunta de direção (antes das perguntas do briefing); Enter vazio pula."""
+    typer.secho("\nDireção do artigo", bold=True)
+    if payload.get("source_title"):
+        typer.echo(f"Fonte: {payload['source_title']}")
+    typer.echo(payload["question"])
+    return typer.prompt("Sua resposta (Enter para pular)", default="", show_default=False)
+
+
 def ask_approval(payload: dict, draft_path: Path) -> dict:
     """Mostra o artigo e lê a decisão do autor: accept, edit ou reject (se ainda puder).
 
@@ -72,12 +81,14 @@ def build_deps(settings: Settings, dry_run: bool) -> Deps:
 
 
 def answer_interrupts(graph, initial: dict) -> dict:
-    """Roda o grafo e responde a cada `interrupt` (pergunta ou aprovação) até o fim."""
+    """Roda o grafo e responde a cada `interrupt` (direção, pergunta ou aprovação) até o fim."""
     config = {"configurable": {"thread_id": str(uuid4())}}
     result = graph.invoke(initial, config)
     while "__interrupt__" in result:
         payload = result["__interrupt__"][0].value
-        if payload["type"] == "question":
+        if payload["type"] == "direction":
+            answer = ask_direction(payload)
+        elif payload["type"] == "question":
             answer = ask_question(payload)
         else:
             draft_path = Path(result["output_dir"]) / "article_draft.md"

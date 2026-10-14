@@ -60,7 +60,7 @@ def test_fonte_irrelevante_grava_so_o_relatorio_com_o_motivo(tmp_path: Path) -> 
     llm = FakeStructuredLLM({Briefing: [briefing]})
     graph = build_graph(make_deps(tmp_path, llm=llm), checkpointer=make_checkpointer())
 
-    final = graph.invoke({"source_text": "Texto da fonte."}, config())
+    final = graph.invoke({"source_text": "Texto da fonte.", "author_direction": ""}, config())
 
     out = Path(final["output_dir"])
     report = (out / "report.md").read_text(encoding="utf-8")

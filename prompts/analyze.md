@@ -15,4 +15,7 @@ Faça o seguinte:
 4. Escreva de 2 a 4 perguntas abertas para o autor, que extraiam opinião, experiência
    prática e exemplos próprios. Uma ideia por pergunta, linguagem direta.
 
+Se o pedido trouxer uma seção "Direção do autor", use-a para orientar o ângulo e as perguntas
+(itens 3 e 4). A relevância é julgada só pela fonte e pelos temas do autor, nunca pela direção.
+
 Restrições: não invente fatos que não estão na fonte; escreva no idioma do autor.

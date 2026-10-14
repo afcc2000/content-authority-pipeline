@@ -30,17 +30,20 @@ interface plugável. Um modo `dry-run` roda tudo sem chamar a API de imagem.
 
 1. **Fonte:** você informa um link (`--url`), um arquivo (`--file`) ou um tema (`--topic`, que
    busca a melhor fonte na web).
-2. **Relevância:** o LLM decide se a fonte combina com os temas do autor (`prompts/context.md`).
-   Se não combinar, o pipeline para e grava um relatório com o motivo.
-3. **Entrevista:** o pipeline pausa e faz ao autor, uma por vez, as perguntas do briefing. São as
-   contribuições pessoais que transformam um resumo num artigo de autoridade. A última pergunta é
-   sempre aberta: a direção que o autor quer dar ao artigo, que prevalece sobre o ângulo sugerido.
-4. **Artigo:** o LLM escreve o artigo; o autor aceita, edita no próprio arquivo ou rejeita com
+2. **Direção:** antes de qualquer análise, o pipeline pausa e pergunta ao autor que direção ele
+   quer dar ao artigo (algo a enfatizar, evitar, um ângulo, exemplo ou opinião). A resposta
+   orienta o ângulo e as perguntas do briefing e, no artigo, prevalece sobre o ângulo sugerido.
+3. **Relevância:** o LLM decide se a fonte combina com os temas do autor (`prompts/context.md`),
+   olhando só a fonte, não a direção. Se não combinar, o pipeline para e grava um relatório com o
+   motivo.
+4. **Entrevista:** o pipeline pausa e faz ao autor, uma por vez, as perguntas do briefing. São as
+   contribuições pessoais que transformam um resumo num artigo de autoridade.
+5. **Artigo:** o LLM escreve o artigo; o autor aceita, edita no próprio arquivo ou rejeita com
    feedback (o artigo é reescrito, até um limite de reescritas).
-5. **Carrossel:** com o artigo aprovado, o LLM planeja os slides e a legenda. Regras
+6. **Carrossel:** com o artigo aprovado, o LLM planeja os slides e a legenda. Regras
    determinísticas (número de slides, tamanho das headlines, legenda, hashtags, chamada e link
    para o blog) validam o plano; se falharem, o LLM corrige a partir da lista de erros.
-6. **Saída:** artigo, slides, legenda, imagens (ou seus prompts, em dry-run) e um relatório da
+7. **Saída:** artigo, slides, legenda, imagens (ou seus prompts, em dry-run) e um relatório da
    execução numa pasta própria.
 
 ## Arquitetura
@@ -58,7 +61,8 @@ flowchart TD
     TEMA(["Tema (--topic)"]) --> RES["research<br/>busca na web + escolhe a fonte"]
     RES --> ING
     IN(["Link ou arquivo (--url / --file)"]) --> ING["ingest<br/>lê e limpa o texto"]
-    ING --> ANA["analyze<br/>relevância + briefing"]
+    ING --> DIR["ask_direction<br/>interrupt: direção do autor"]
+    DIR --> ANA["analyze<br/>relevância + briefing"]
     ANA -->|irrelevante| REP["export_report<br/>só o relatório"]
     ANA -->|relevante| INT["interview<br/>interrupt: uma pergunta por vez"]
     INT -->|faltam perguntas| INT
@@ -231,11 +235,12 @@ Informe exatamente uma fonte. Opções:
   decide é o `IMAGE_PROVIDER` do `.env`: com `fake` (o padrão) também não há custo; com
   `higgsfield`, as imagens são geradas de verdade.
 
-Durante a execução o pipeline pausa duas vezes:
+Durante a execução o pipeline pausa em três momentos:
 
-1. **Entrevista:** cada pergunta aparece como `Pergunta i/n`; responda ou tecle Enter para pular.
-   A última é aberta: diga o que o artigo deve enfatizar, evitar ou defender.
-2. **Aprovação:** o artigo é mostrado e você escolhe `accept`, `edit` (o artigo é salvo em
+1. **Direção do artigo:** antes da análise, diga o que o artigo deve enfatizar, evitar ou
+   defender (ou tecle Enter para pular). Isso orienta as perguntas da entrevista e o artigo.
+2. **Entrevista:** cada pergunta aparece como `Pergunta i/n`; responda ou tecle Enter para pular.
+3. **Aprovação:** o artigo é mostrado e você escolhe `accept`, `edit` (o artigo é salvo em
    `article_draft.md`; edite, salve e tecle Enter) ou `reject` (escreva o que deve mudar; a opção
    some quando o limite de reescritas acaba).
 
@@ -269,7 +274,7 @@ content-authority-pipeline/
 │   ├── fetcher.py        # leitura de links com httpx + trafilatura
 │   ├── web.py            # Tavily: leitura opcional e busca por tema
 │   ├── export.py         # grava os arquivos de saída e o relatório
-│   ├── nodes/            # research, ingest, analyze, interview, write_article, approval
+│   ├── nodes/            # research, ingest, direction, analyze, interview, write_article, approval
 │   ├── carousel/         # subgrafo do carrossel: planner, validators, subgraph
 │   └── images/           # porta ImageGenerator e adaptadores fake e Higgsfield
 ├── prompts/              # contexto do autor, estilo do artigo, marca e regras do carrossel
