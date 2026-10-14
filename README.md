@@ -272,7 +272,6 @@ content-authority-pipeline/
 ├── prompts/              # contexto do autor, estilo do artigo, marca e regras do carrossel
 ├── tests/                # testes com LLM e gerador de imagem falsos (tests/fakes.py)
 ├── samples/              # entrada de exemplo do comando demo
-├── scripts/              # teste de fumaça da API de imagem (gasta créditos)
 └── docs/                 # projeto, roteiro, tickets e log de uso de IA
 ```
 
@@ -286,9 +285,16 @@ uv run ruff format --check .  # formatação
 
 Os testes usam um LLM falso (`tests/fakes.py`), que devolve respostas roteirizadas, e um gerador
 de imagem falso. Assim cobrem o grafo inteiro (entrevista, `accept`, `edit`, `reject`, fonte
-irrelevante, validação do carrossel e exportação) sem custo. O marcador `integration` fica
-reservado para testes que chamam APIs reais: eles ficam fora da execução padrão e rodam com
-`uv run pytest -m integration`.
+irrelevante, validação do carrossel e exportação) sem custo. O adaptador da Higgsfield é testado
+sem rede, com um cliente falso e o `httpx.MockTransport`.
+
+Os testes marcados `integration` chamam APIs reais e ficam fora da execução padrão. Hoje há um:
+ele gera uma imagem de verdade na Higgsfield (gasta créditos e exige `HF_KEY` no `.env`) e
+confere que saiu um PNG na proporção configurada:
+
+```bash
+uv run pytest -m integration
+```
 
 ## Como a IA acelerou este projeto
 
