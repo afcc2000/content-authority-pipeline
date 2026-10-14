@@ -29,7 +29,9 @@ def test_padroes_sem_env_file() -> None:
     assert settings.headline_max_chars == 80
     assert settings.caption_max_chars == 2200
     assert settings.max_hashtags == 5
-    assert settings.image_aspect_ratio == "4:5"
+    assert settings.image_aspect_ratio == "3:4"
+    assert settings.image_model == "higgsfield-ai/soul/v2/standard"
+    assert settings.image_resolution == "1080p"
     assert settings.blog_url is None
 
 

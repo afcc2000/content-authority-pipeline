@@ -123,7 +123,7 @@ flowchart LR
     NODES --> WEB["web.py<br/>Tavily: leitura opcional + busca por tema"]
     SUB --> PORT["images/base.py<br/>ImageGenerator (Protocol)"]
     PORT --> FAKE["images/fake.py<br/>dry-run e testes"]
-    PORT -.-> HF["Higgsfield<br/>planejado (E1)"]
+    PORT --> HF["images/higgsfield.py<br/>SDK Higgsfield: submit + polling limitado"]
     GRAPH -. traces .-> LS[("LangSmith")]
 ```
 

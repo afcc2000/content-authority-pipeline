@@ -14,6 +14,7 @@ from langgraph.graph import END, START, StateGraph
 from content_pipeline.carousel.planner import make_plan_slides
 from content_pipeline.carousel.validators import validate_carousel
 from content_pipeline.deps import Deps
+from content_pipeline.images import FakeImageGenerator, ImageGenerationError
 from content_pipeline.state import PipelineState
 
 
@@ -52,15 +53,24 @@ def make_render_images(deps: Deps):
 
     def render_images(state: PipelineState) -> dict:
         images_dir = Path(state["output_dir"]) / "images"
-        paths = [
-            deps.images.generate(
-                slide.image_prompt,
-                aspect_ratio=deps.settings.image_aspect_ratio,
-                out_path=images_dir / f"slide_{slide.index:02d}.png",
-            )
-            for slide in state["carousel"].slides
-        ]
-        return {"images": [str(path) for path in paths]}
+        aspect_ratio = deps.settings.image_aspect_ratio
+        warnings = list(state.get("warnings") or [])
+        paths = []
+        for slide in state["carousel"].slides:
+            out_path = images_dir / f"slide_{slide.index:02d}.png"
+            try:
+                path = deps.images.generate(
+                    slide.image_prompt, aspect_ratio=aspect_ratio, out_path=out_path
+                )
+            except ImageGenerationError as exc:
+                # Uma imagem perdida não pode derrubar o artigo já aprovado: grava o prompt
+                # (para gerar depois) e segue com um aviso no relatório.
+                warnings.append(f"Slide {slide.index}: imagem não gerada ({exc}).")
+                path = FakeImageGenerator().generate(
+                    slide.image_prompt, aspect_ratio=aspect_ratio, out_path=out_path
+                )
+            paths.append(path)
+        return {"images": [str(path) for path in paths], "warnings": warnings}
 
     return render_images
 

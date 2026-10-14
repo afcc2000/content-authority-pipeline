@@ -33,5 +33,10 @@ class Settings(BaseSettings):
     headline_max_chars: int = 80
     caption_max_chars: int = 2200
     max_hashtags: int = 5
-    image_aspect_ratio: str = "4:5"
+    # Proporção e modelo testados na API em 2026-10-13: os modelos Soul recusam 4:5 (a documentação
+    # diz que o Soul Standard aceita; a API não). 3:4 é o retrato mais próximo que eles aceitam; o
+    # app do Instagram aceita 3:4, mas a API da Meta e os agendadores cortam para 4:5.
+    image_aspect_ratio: str = "3:4"
+    image_model: str = "higgsfield-ai/soul/v2/standard"  # endpoint do modelo na Higgsfield
+    image_resolution: str = "1080p"  # enviada ao modelo se não vazia (nem todo modelo aceita)
     blog_url: str | None = None  # se definido, a legenda precisa conter este link

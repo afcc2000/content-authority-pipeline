@@ -102,12 +102,14 @@ flowchart LR
     NODES --> WEB["web.py<br/>Tavily: leitura opcional + busca por tema"]
     SUB --> PORT["images/base.py<br/>ImageGenerator (Protocol)"]
     PORT --> FAKE["images/fake.py<br/>dry-run e testes"]
-    PORT -.-> HF["Higgsfield<br/>planejado (E1)"]
+    PORT --> HF["images/higgsfield.py<br/>SDK Higgsfield: submit + polling limitado"]
     GRAPH -. traces .-> LS[("LangSmith")]
 ```
 
-O adaptador real de imagem (Higgsfield) ainda não está implementado: hoje cada imagem sai como um
-arquivo `.prompt.txt` com o prompt do slide.
+Em dry-run (o padrão) cada imagem sai como um arquivo `.prompt.txt` com o prompt do slide; com
+`--no-dry-run` e `IMAGE_PROVIDER=higgsfield`, o adaptador gera as imagens na Higgsfield, um slide
+por vez. Se a imagem de um slide falhar, o pipeline grava o prompt dela, registra um aviso no
+relatório e segue: o artigo aprovado nunca se perde por causa de uma imagem.
 
 ## Tecnologias
 
@@ -119,7 +121,7 @@ arquivo `.prompt.txt` com o prompt do slide.
 | Modelos e configuração | Pydantic 2, pydantic-settings, python-dotenv |
 | CLI | Typer |
 | Web | httpx + trafilatura (leitura de links); Tavily (busca por tema e leitura opcional) |
-| Imagem | interface `ImageGenerator`; SDK `higgsfield-client` instalado para o adaptador real |
+| Imagem | interface `ImageGenerator`; Higgsfield (SDK `higgsfield-client`, modelo Soul V2) |
 | Observabilidade | LangSmith (traces) |
 | Qualidade | pytest, ruff |
 
@@ -140,8 +142,8 @@ Como elas foram usadas está em [Como a IA acelerou este projeto](#como-a-ia-ace
   precisar).
 - Uma chave de API de LLM (por padrão, OpenAI).
 - Opcionais: chave do [Tavily](https://tavily.com) (busca por tema), do
-  [LangSmith](https://smith.langchain.com) (traces) e da Higgsfield (imagens, quando o adaptador
-  real existir).
+  [LangSmith](https://smith.langchain.com) (traces) e da [Higgsfield](https://higgsfield.ai)
+  (imagens reais).
 
 ## Instalação
 
@@ -197,14 +199,16 @@ Tudo é lido do ambiente ou do arquivo `.env`, que nunca é versionado.
 | `OPENAI_API_KEY` | com OpenAI | Chave do provedor do LLM (outro provedor usa a própria variável) |
 | `WEB_READER` | não | Como ler links: `trafilatura` (padrão, sem chave) ou `tavily` |
 | `TAVILY_API_KEY` | para `--topic` ou `WEB_READER=tavily` | Chave do Tavily |
-| `IMAGE_PROVIDER` | não | `fake` (padrão) ou `higgsfield` (adaptador ainda não implementado) |
+| `IMAGE_PROVIDER` | não | `fake` (padrão) ou `higgsfield` (gera imagens reais com `--no-dry-run`) |
 | `HF_KEY` | com Higgsfield | Credencial no formato `key-id:key-secret` |
+| `IMAGE_MODEL` | não | Modelo da Higgsfield (padrão: `higgsfield-ai/soul/v2/standard`) |
+| `IMAGE_RESOLUTION` | não | Resolução enviada ao modelo (padrão: `1080p`; vazio para não enviar) |
 | `BLOG_URL` | não | Se definido, a legenda do carrossel precisa conter este link |
 | `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` | não | Envio de traces para o LangSmith |
 
 Limites ajustáveis no mesmo `.env` (padrão entre parênteses): `MAX_REWRITES` (3),
 `MAX_CAROUSEL_ATTEMPTS` (2), `MIN_SLIDES` (5), `MAX_SLIDES` (10), `HEADLINE_MAX_CHARS` (80),
-`CAPTION_MAX_CHARS` (2200), `MAX_HASHTAGS` (5), `IMAGE_ASPECT_RATIO` (4:5) e `PROMPTS_DIR`
+`CAPTION_MAX_CHARS` (2200), `MAX_HASHTAGS` (5), `IMAGE_ASPECT_RATIO` (3:4) e `PROMPTS_DIR`
 (`prompts`).
 
 Os textos que definem o autor, o estilo do artigo e a identidade visual ficam em `prompts/*.md` e
@@ -240,7 +244,8 @@ Cada execução gera uma pasta `outputs/AAAA-MM-DD-<slug>/` com:
 | `slides.json` | Slides (headline, complemento, prompt da imagem), legenda, hashtags e chamada para o blog |
 | `caption.txt` | Legenda pronta para colar, com as hashtags |
 | `report.md` | Fonte, relevância, decisão, entrevista e avisos |
-| `images/slide_NN.prompt.txt` | Prompt de cada imagem (dry-run) |
+| `images/slide_NN.png` | Imagem de cada slide (com `--no-dry-run` e `IMAGE_PROVIDER=higgsfield`) |
+| `images/slide_NN.prompt.txt` | Prompt de cada imagem (em dry-run, ou quando a imagem do slide falhou) |
 
 Se a fonte for irrelevante ou o artigo for rejeitado depois do limite de reescritas, a pasta
 recebe só o `report.md`, com o motivo.
@@ -263,7 +268,7 @@ content-authority-pipeline/
 │   ├── export.py         # grava os arquivos de saída e o relatório
 │   ├── nodes/            # research, ingest, analyze, interview, write_article, approval
 │   ├── carousel/         # subgrafo do carrossel: planner, validators, subgraph
-│   └── images/           # porta ImageGenerator e adaptador fake
+│   └── images/           # porta ImageGenerator e adaptadores fake e Higgsfield
 ├── prompts/              # contexto do autor, estilo do artigo, marca e regras do carrossel
 ├── tests/                # testes com LLM e gerador de imagem falsos (tests/fakes.py)
 ├── samples/              # entrada de exemplo do comando demo
@@ -317,7 +322,8 @@ Vários detalhes só apareceram ao conferir cada API na versão instalada, em ve
 sugestão inicial:
 `init_chat_model("")` não falha (devolve um modelo configurável); o `TavilyClient` sem chave
 entra num modo limitado em vez de dar erro; o `trafilatura.extract_metadata` não aceita bytes; e
-o `subscribe` da Higgsfield não levanta erro quando a geração falha. Cada achado virou uma checagem
+o `subscribe` da Higgsfield não levanta erro quando a geração falha; e a página do modelo Soul
+Standard listava a proporção 4:5, que a API recusou no teste. Cada achado virou uma checagem
 no código. No sentido inverso, a IA barrou o commit de uma chave do LangSmith colada no `.env.example`.
 
 Também houve correções de rumo durante a construção. O limite de hashtags do Instagram caiu de 30
@@ -353,10 +359,11 @@ e registradas). Não medi o tempo gasto, então não estimo ganho em horas.
 
 ## Limitações e próximos passos
 
-- **Imagens reais.** O adaptador da Higgsfield ainda não existe (E1); hoje as imagens saem como
-  prompts. O SDK e um teste de fumaça já funcionam, e o adaptador precisa tratar dois pontos: a
-  página do modelo testado não lista a proporção 4:5, que é a padrão do projeto, e o `subscribe` não tem
-  tempo limite.
+- **Proporção 3:4.** Os modelos Soul da Higgsfield recusam 4:5, o retrato aceito em todos os
+  caminhos de publicação do Instagram. O projeto usa 3:4: o app aceita, mas agendadores e a API
+  da Meta cortam para 4:5. Um modelo com 4:5 nativo (ex.: Recraft, que também aceita a paleta de
+  cores da marca) pode ser configurado em `IMAGE_MODEL` depois de testado.
+- **Consistência visual entre slides.** Cada imagem é gerada de forma independente.
 - **Checkpoint em memória.** Uma execução interrompida não pode ser retomada depois (E3:
   checkpoint persistente).
 - **Carrossel como agente.** O planejamento dos slides e a geração de imagem poderiam virar um

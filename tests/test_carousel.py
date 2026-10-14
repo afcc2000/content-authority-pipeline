@@ -5,7 +5,7 @@ from pathlib import Path
 from content_pipeline.carousel.planner import build_carousel_request
 from content_pipeline.carousel.subgraph import build_carousel_subgraph
 from content_pipeline.deps import Deps
-from content_pipeline.images import FakeImageGenerator
+from content_pipeline.images import FakeImageGenerator, ImageGenerationError
 from content_pipeline.models import CarouselPlan
 from tests.fakes import FakeStructuredLLM, make_article, make_carousel, make_settings
 
@@ -61,6 +61,33 @@ def test_pedido_do_carrossel_tem_limites_de_settings_e_artigo(tmp_path: Path) ->
     assert "No máximo 5 hashtags." in user
     assert "<artigo>\n# Título do artigo" in user
     assert "Identidade visual" in system  # carousel_brand entra no system
+
+
+class FalhaNoSlide2(FakeImageGenerator):
+    """Gerador que falha só no slide 2, como uma API real sem créditos ou com NSFW."""
+
+    def generate(self, prompt: str, *, aspect_ratio: str, out_path: Path) -> Path:
+        if out_path.name == "slide_02.png":
+            raise ImageGenerationError("status 'nsfw'")
+        return super().generate(prompt, aspect_ratio=aspect_ratio, out_path=out_path)
+
+
+def test_falha_numa_imagem_vira_aviso_e_o_carrossel_segue(tmp_path: Path) -> None:
+    llm = FakeStructuredLLM({CarouselPlan: [make_carousel()]})
+    deps = Deps(llm=llm, images=FalhaNoSlide2(), settings=make_settings())
+    state = {
+        "article": make_article(),
+        "output_dir": str(tmp_path / "saida"),
+        "carousel_attempts": 0,
+        "warnings": [],
+    }
+
+    final = build_carousel_subgraph(deps).invoke(state)
+
+    images = tmp_path / "saida" / "images"
+    assert len(final["images"]) == 5
+    assert (images / "slide_02.prompt.txt").exists()  # o prompt fica para gerar depois
+    assert any("Slide 2" in aviso and "nsfw" in aviso for aviso in final["warnings"])
 
 
 def make_request(**settings_overrides) -> str:

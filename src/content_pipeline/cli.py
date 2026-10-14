@@ -12,7 +12,7 @@ from content_pipeline.config import Settings
 from content_pipeline.deps import Deps
 from content_pipeline.fetcher import FetchError
 from content_pipeline.graph import build_graph, make_checkpointer
-from content_pipeline.images import make_image_generator
+from content_pipeline.images import ImageConfigError, make_image_generator
 from content_pipeline.llm import LangChainStructuredLLM, LLMConfigError
 from content_pipeline.web import SearchError, make_fetch, make_search
 
@@ -115,7 +115,7 @@ def run_pipeline(initial: dict, dry_run: bool, out: Path) -> None:
             raise SearchError("--topic exige TAVILY_API_KEY no .env.")
         graph = build_graph(deps, checkpointer=make_checkpointer())
         result = answer_interrupts(graph, initial)
-    except (LLMConfigError, NotImplementedError, FetchError, SearchError) as exc:
+    except (LLMConfigError, ImageConfigError, FetchError, SearchError) as exc:
         typer.secho(f"Erro: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc
 

@@ -1,10 +1,20 @@
 """Geração de imagens: porta, adaptadores e a fábrica que escolhe o adaptador."""
 
-from content_pipeline.config import Settings
-from content_pipeline.images.base import ImageGenerator
-from content_pipeline.images.fake import FakeImageGenerator
+import os
 
-__all__ = ["FakeImageGenerator", "ImageGenerator", "make_image_generator"]
+from content_pipeline.config import Settings
+from content_pipeline.images.base import ImageConfigError, ImageGenerationError, ImageGenerator
+from content_pipeline.images.fake import FakeImageGenerator
+from content_pipeline.images.higgsfield import HiggsfieldImageGenerator
+
+__all__ = [
+    "FakeImageGenerator",
+    "HiggsfieldImageGenerator",
+    "ImageConfigError",
+    "ImageGenerationError",
+    "ImageGenerator",
+    "make_image_generator",
+]
 
 
 def make_image_generator(settings: Settings, *, dry_run: bool) -> ImageGenerator:
@@ -13,11 +23,18 @@ def make_image_generator(settings: Settings, *, dry_run: bool) -> ImageGenerator
     Em dry-run, ou com `IMAGE_PROVIDER=fake`, devolve o fake (nunca gasta créditos).
 
     Raises:
-        NotImplementedError: Provedor real ainda não implementado (ver ticket E1).
+        ImageConfigError: `IMAGE_PROVIDER=higgsfield` sem credencial no ambiente.
     """
     if dry_run or settings.image_provider == "fake":
         return FakeImageGenerator()
-    raise NotImplementedError(
-        f"O provedor de imagem '{settings.image_provider}' ainda não foi implementado: "
-        "a API está [A verificar] (ticket E1). Use IMAGE_PROVIDER=fake ou --dry-run."
+    # O SDK só lê a credencial no primeiro pedido; checamos aqui para falhar antes de começar.
+    has_key = os.environ.get("HF_KEY") or (
+        os.environ.get("HF_API_KEY") and os.environ.get("HF_API_SECRET")
+    )
+    if not has_key:
+        raise ImageConfigError(
+            "IMAGE_PROVIDER=higgsfield exige HF_KEY no .env (formato key-id:key-secret)."
+        )
+    return HiggsfieldImageGenerator(
+        settings.image_model, resolution=settings.image_resolution or None
     )
