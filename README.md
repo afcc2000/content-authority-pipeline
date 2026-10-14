@@ -106,9 +106,9 @@ flowchart LR
     GRAPH -. traces .-> LS[("LangSmith")]
 ```
 
-Em dry-run (o padrão) cada imagem sai como um arquivo `.prompt.txt` com o prompt do slide; com
-`--no-dry-run` e `IMAGE_PROVIDER=higgsfield`, o adaptador gera as imagens na Higgsfield, um slide
-por vez. Se a imagem de um slide falhar, o pipeline grava o prompt dela, registra um aviso no
+Com `IMAGE_PROVIDER=fake` (o padrão) ou com `--dry-run`, cada imagem sai como um arquivo
+`.prompt.txt` com o prompt do slide; com `IMAGE_PROVIDER=higgsfield`, o adaptador gera as imagens
+na Higgsfield, um slide por vez. Se a imagem de um slide falhar, o pipeline grava o prompt dela, registra um aviso no
 relatório e segue: o artigo aprovado nunca se perde por causa de uma imagem.
 
 ## Tecnologias
@@ -199,7 +199,7 @@ Tudo é lido do ambiente ou do arquivo `.env`, que nunca é versionado.
 | `OPENAI_API_KEY` | com OpenAI | Chave do provedor do LLM (outro provedor usa a própria variável) |
 | `WEB_READER` | não | Como ler links: `trafilatura` (padrão, sem chave) ou `tavily` |
 | `TAVILY_API_KEY` | para `--topic` ou `WEB_READER=tavily` | Chave do Tavily |
-| `IMAGE_PROVIDER` | não | `fake` (padrão) ou `higgsfield` (gera imagens reais com `--no-dry-run`) |
+| `IMAGE_PROVIDER` | não | `fake` (padrão) ou `higgsfield` (gera imagens reais; `--dry-run` desliga) |
 | `HF_KEY` | com Higgsfield | Credencial no formato `key-id:key-secret` |
 | `IMAGE_MODEL` | não | Modelo da Higgsfield (padrão: `higgsfield-ai/soul/v2/standard`) |
 | `IMAGE_RESOLUTION` | não | Resolução enviada ao modelo (padrão: `1080p`; vazio para não enviar) |
@@ -226,8 +226,9 @@ uv run content-pipeline demo                                   # exemplo de samp
 Informe exatamente uma fonte. Opções:
 
 - `--out PASTA`: onde salvar os resultados (padrão: `outputs`).
-- `--dry-run` / `--no-dry-run`: o padrão é dry-run, que não chama a API de imagem e grava só os
-  prompts das imagens.
+- `--dry-run`: não chama a API de imagem e grava só os prompts das imagens. Sem essa opção, quem
+  decide é o `IMAGE_PROVIDER` do `.env`: com `fake` (o padrão) também não há custo; com
+  `higgsfield`, as imagens são geradas de verdade.
 
 Durante a execução o pipeline pausa duas vezes:
 
@@ -244,7 +245,7 @@ Cada execução gera uma pasta `outputs/AAAA-MM-DD-<slug>/` com:
 | `slides.json` | Slides (headline, complemento, prompt da imagem), legenda, hashtags e chamada para o blog |
 | `caption.txt` | Legenda pronta para colar, com as hashtags |
 | `report.md` | Fonte, relevância, decisão, entrevista e avisos |
-| `images/slide_NN.png` | Imagem de cada slide (com `--no-dry-run` e `IMAGE_PROVIDER=higgsfield`) |
+| `images/slide_NN.png` | Imagem de cada slide (com `IMAGE_PROVIDER=higgsfield`, sem `--dry-run`) |
 | `images/slide_NN.prompt.txt` | Prompt de cada imagem (em dry-run, ou quando a imagem do slide falhou) |
 
 Se a fonte for irrelevante ou o artigo for rejeitado depois do limite de reescritas, a pasta

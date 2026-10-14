@@ -475,8 +475,8 @@ uv run content-pipeline run --file samples/sample_input.md --dry-run
 # a partir de um link
 uv run content-pipeline run --url https://exemplo.com/artigo --dry-run
 
-# com imagens reais (requer IMAGE_PROVIDER e chaves)
-uv run content-pipeline run --url https://exemplo.com/artigo --no-dry-run --out outputs/
+# com imagens reais: IMAGE_PROVIDER=higgsfield e HF_KEY no .env, sem --dry-run
+uv run content-pipeline run --url https://exemplo.com/artigo --out outputs/
 ```
 
 Durante a execução, a CLI mostra cada pergunta da entrevista e depois o artigo, e pede `accept` / `edit` / `reject`. Para `edit`, a forma mais simples é a CLI gravar o artigo num arquivo, você editar e confirmar. Os nomes de comando e flags são **[Decisão]** e podem mudar na implementação.

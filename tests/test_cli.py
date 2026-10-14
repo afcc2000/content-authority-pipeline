@@ -90,6 +90,46 @@ def test_demo_responde_entrevista_e_aprovacao_ate_exportar(
     assert len(list(sem_dotenv.rglob("article.md"))) == 1
 
 
+@pytest.mark.parametrize(
+    ("args", "dry_run_esperado"),
+    [
+        (["run", "--file", str(SAMPLE)], False),  # sem flag: quem decide é o IMAGE_PROVIDER
+        (["run", "--file", str(SAMPLE), "--dry-run"], True),
+        (["demo"], True),  # a demonstração nunca gasta créditos
+    ],
+)
+def test_dry_run_so_quando_pedido(
+    sem_dotenv: Path, monkeypatch: pytest.MonkeyPatch, args: list[str], dry_run_esperado: bool
+) -> None:
+    from content_pipeline import cli
+    from content_pipeline.images import FakeImageGenerator
+    from content_pipeline.models import Briefing
+    from tests.fakes import FakeStructuredLLM, make_briefing
+
+    recebido = []
+
+    def espiao(settings, *, dry_run):
+        recebido.append(dry_run)
+        return FakeImageGenerator()
+
+    fake = FakeStructuredLLM({Briefing: [make_briefing(relevant=False)]})
+    monkeypatch.setattr(cli, "LangChainStructuredLLM", lambda model: fake)
+    monkeypatch.setattr(cli, "make_image_generator", espiao)
+    monkeypatch.setattr(cli, "SAMPLE_INPUT", SAMPLE)
+    monkeypatch.setenv("PROMPTS_DIR", str(SAMPLE.parents[1] / "prompts"))
+
+    result = runner.invoke(app, [*args, "--out", str(sem_dotenv)])
+
+    assert result.exit_code == 0, result.output
+    assert recebido == [dry_run_esperado]
+
+
+def test_no_dry_run_nao_existe_mais(sem_dotenv: Path) -> None:
+    result = runner.invoke(app, ["run", "--file", str(SAMPLE), "--no-dry-run"])
+
+    assert result.exit_code == 2  # erro de uso (opção inexistente), não falha do pipeline
+
+
 def test_demo_com_fonte_irrelevante_mostra_onde_esta_o_relatorio(
     sem_dotenv: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

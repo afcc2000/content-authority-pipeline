@@ -133,8 +133,13 @@ def run(
         str | None, typer.Option(help="Tema para buscar uma fonte na web (Tavily).")
     ] = None,
     dry_run: Annotated[
-        bool, typer.Option(help="Não chama a API de imagem (só grava os prompts).")
-    ] = True,
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Não chama a API de imagem (só grava os prompts). Sem esta opção, quem "
+            "decide é o IMAGE_PROVIDER do .env (padrão: fake, sem custo).",
+        ),
+    ] = False,
     out: OutOption = Path("outputs"),
 ) -> None:
     """Roda o pipeline a partir de exatamente uma fonte: --url, --file ou --topic."""
