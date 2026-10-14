@@ -21,6 +21,9 @@ interface plugável. Um modo `dry-run` roda tudo sem chamar a API de imagem.
 - [Uso](#uso)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Testes](#testes)
+- [Como a IA acelerou este projeto](#como-a-ia-acelerou-este-projeto)
+- [Limitações e próximos passos](#limitações-e-próximos-passos)
+- [Créditos](#créditos)
 - [Licença](#licença)
 
 ## Como funciona
@@ -120,7 +123,16 @@ arquivo `.prompt.txt` com o prompt do slide.
 | Observabilidade | LangSmith (traces) |
 | Qualidade | pytest, ruff |
 
-<!-- T26: ferramentas de IA usadas no desenvolvimento -->
+### Ferramentas de IA no desenvolvimento
+
+| Ferramenta | Em quê |
+|---|---|
+| Claude (chat) | Ideação: busca e comparação de referências e seleção do MVP |
+| Claude (Cowork) | Arquitetura (diagramas Mermaid, estrutura de pastas) e lista de dependências |
+| Claude Code (Opus 5.5) | Implementação ticket a ticket, testes, revisão e documentação; um subagente na atualização dos documentos |
+| Context7 | Consulta à documentação atualizada das bibliotecas (ex.: API do `tavily-python`) |
+
+Como elas foram usadas está em [Como a IA acelerou este projeto](#como-a-ia-acelerou-este-projeto).
 
 ## Pré-requisitos
 
@@ -273,7 +285,97 @@ irrelevante, validação do carrossel e exportação) sem custo. O marcador `int
 reservado para testes que chamam APIs reais: eles ficam fora da execução padrão e rodam com
 `uv run pytest -m integration`.
 
-<!-- T26: Como a IA acelerou este projeto, limitações e créditos -->
+## Como a IA acelerou este projeto
+
+Construí o projeto com o Claude Code como par de programação, um ticket por vez: a IA propunha e
+implementava, eu revisava e só então autorizava cada commit. Cada interação relevante está em
+[`docs/uso-de-ia.md`](docs/uso-de-ia.md), com o que pedi, o que aceitei, o que mudei ou rejeitei
+e como validei. Esta seção resume esse log.
+
+### Decisões que mudaram por causa da IA (ou apesar dela)
+
+- **Descartei a PoC.** Gerei com IA uma prova de conceito completa em uma sessão (25 testes
+  passando, ruff limpo). Funcionava, mas eu não dominava cada parte e o histórico não mostraria a
+  evolução. Descartei o código e reconstruí o projeto em 28 tickets, usando a PoC como
+  especificação.
+- **Validação antes das imagens.** Na revisão da arquitetura, a validação do carrossel foi movida
+  para antes da geração de imagem: as regras determinísticas são baratas, e gerar imagem custa
+  créditos.
+- **Versões conferidas, não aceitas.** A lista de dependências sugerida pela IA foi conferida no
+  PyPI (versão e `Requires-Python`), instalada e testada antes de entrar no `pyproject.toml`.
+- **Uma limitação real virou arquitetura.** Os modelos falsos do LangChain não suportam
+  `with_structured_output` (confirmado na versão instalada). Por isso os nós dependem de uma porta
+  `StructuredLLM`, e as dependências são injetadas por `Deps`: os testes usam um LLM falso próprio
+  e cobrem o grafo inteiro sem chave de API.
+- **O aviso do serializador do checkpoint.** O LangGraph avisava que bloquearia a desserialização
+  dos modelos do pipeline. Reproduzi o problema (um `SearchResult` voltava do checkpoint como
+  `dict`) e registrei os tipos no serializador.
+
+### Onde a revisão humana fez diferença
+
+Vários detalhes só apareceram ao conferir cada API na versão instalada, em vez de confiar na
+sugestão inicial:
+`init_chat_model("")` não falha (devolve um modelo configurável); o `TavilyClient` sem chave
+entra num modo limitado em vez de dar erro; o `trafilatura.extract_metadata` não aceita bytes; e
+o `subscribe` da Higgsfield não levanta erro quando a geração falha. Cada achado virou uma checagem
+no código. No sentido inverso, a IA barrou o commit de uma chave do LangSmith colada no `.env.example`.
+
+Também houve correções de rumo durante a construção. O limite de hashtags do Instagram caiu de 30
+para 5 depois de uma pesquisa (o documento do projeto dizia 30). E, ao conferir os diagramas do
+README contra o código, encontrei dois caminhos que encerravam o pipeline sem relatório (fonte
+irrelevante e `reject` no limite), corrigidos com teste antes do código.
+
+### TDD e refatoração
+
+- **Ciclo TDD em três commits** (T19 a T21) para a regra "a legenda precisa conter o link do
+  blog": o teste falhando (`cebbace`), o mínimo para passar (`ca42156`) e a refatoração com os
+  testes inalterados (`af802be`). A refatoração recusou mudanças que não melhoravam nada (como
+  constantes usadas uma só vez).
+- **Refatoração DRY** (T22): a repetição "compor prompts + chamar o LLM" em quatro nós virou o
+  helper `ask`. A IA apontou que colocá-lo em `llm.py` criaria um import circular, e ele foi para
+  `nodes/common.py`. Uma duplicação anotada no T08a (a checagem de links http(s)) foi
+  resolvida no mesmo commit.
+
+### Números
+
+O log registra: de 1 teste (T01) a 100, todos rodando sem chave de API e sem rede; 28 tickets
+planejados; e 10 registros de desvio aprovado (mudanças em relação ao plano, decididas por mim
+e registradas). Não medi o tempo gasto, então não estimo ganho em horas.
+
+### Lições
+
+- **Confira toda API na versão instalada.** As sugestões da IA nem sempre correspondem à versão
+  que está no projeto.
+- **O plano é uma hipótese.** Quando a IA encontra algo melhor ou um erro no ticket, o certo é
+  parar, decidir e registrar, não desviar em silêncio.
+- **Prompts com contrato funcionam.** Ticket com critérios de aceite, esqueleto antes do texto
+  (README) e análise de impacto antes do diff (T22) deram respostas mais previsíveis.
+
+## Limitações e próximos passos
+
+- **Imagens reais.** O adaptador da Higgsfield ainda não existe (E1); hoje as imagens saem como
+  prompts. O SDK e um teste de fumaça já funcionam, e o adaptador precisa tratar dois pontos: a
+  página do modelo testado não lista a proporção 4:5, que é a padrão do projeto, e o `subscribe` não tem
+  tempo limite.
+- **Checkpoint em memória.** Uma execução interrompida não pode ser retomada depois (E3:
+  checkpoint persistente).
+- **Carrossel como agente.** O planejamento dos slides e a geração de imagem poderiam virar um
+  agente com a imagem como ferramenta (E2).
+- **Avaliação no LangSmith.** O dataset e os avaliadores (T23) estão planejados para depois que
+  os prompts pessoais estiverem prontos.
+- **Prompts pessoais.** `prompts/context.md` e `prompts/carousel_brand.md` ainda são provisórios
+  (T17).
+- **Fora do MVP:** interface web (o MVP é CLI), publicação e agendamento em redes sociais,
+  agente autônomo de pesquisa, aprendizado a partir das edições do autor, consistência visual
+  garantida entre imagens, múltiplos idiomas e múltiplas redes.
+
+## Créditos
+
+- [langchain-ai/social-media-agent](https://github.com/langchain-ai/social-media-agent): inspiração
+  para os prompts como componentes editáveis, a verificação de relevância com relatório e a
+  aprovação accept/edit/reject.
+- [Documentação do LangChain e do LangGraph](https://docs.langchain.com).
+- Microcurso 4 do AKCIT (Engenharia de Software com IA), que orientou as etapas do projeto.
 <!-- T27: demonstração e exemplos -->
 
 ## Licença
