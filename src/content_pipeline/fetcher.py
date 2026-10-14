@@ -18,6 +18,18 @@ class FetchError(RuntimeError):
     """A página não pôde ser baixada ou não tem texto aproveitável."""
 
 
+class FetchBlockedError(FetchError):
+    """O site recusou a leitura direta (HTTP 403, típico de proteção contra robôs).
+
+    Diferente de um link quebrado, outro leitor (ex.: o Tavily) pode conseguir o conteúdo.
+    """
+
+    def __init__(self, message: str, *, status_code: int) -> None:
+        """Guarda o status HTTP que caracterizou o bloqueio."""
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def require_http_url(url: str) -> None:
     """Recusa links que não sejam http(s) (ex.: file://, javascript:).
 
@@ -74,6 +86,10 @@ def _download(http: httpx.Client, url: str, max_bytes: int) -> str:
                     raise FetchError(f"Página maior que o limite de {max_bytes} bytes: {url}")
                 chunks.append(chunk)
             encoding = response.encoding or "utf-8"
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 403:
+            raise FetchBlockedError(f"Falha ao baixar {url}: {exc}", status_code=403) from exc
+        raise FetchError(f"Falha ao baixar {url}: {exc}") from exc
     except httpx.HTTPError as exc:
         raise FetchError(f"Falha ao baixar {url}: {exc}") from exc
     return b"".join(chunks).decode(encoding, errors="replace")

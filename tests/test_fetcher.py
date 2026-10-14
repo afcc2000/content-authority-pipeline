@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from content_pipeline.fetcher import FetchError, fetch_url
+from content_pipeline.fetcher import FetchBlockedError, FetchError, fetch_url
 
 PARAGRAPH = "A experiência prática mostra que pequenas mudanças geram grandes resultados. " * 5
 HTML = f"""<html>
@@ -49,5 +49,14 @@ def test_pagina_maior_que_max_bytes_levanta_fetch_error() -> None:
 
 
 def test_resposta_404_levanta_fetch_error() -> None:
-    with pytest.raises(FetchError, match="404"):
+    with pytest.raises(FetchError, match="404") as info:
         fetch_url("https://exemplo.com/nao-existe", client=make_client(status=404))
+
+    assert not isinstance(info.value, FetchBlockedError)  # link quebrado: sem fallback
+
+
+def test_resposta_403_levanta_fetch_blocked_error_com_o_status() -> None:
+    with pytest.raises(FetchBlockedError, match="403") as info:
+        fetch_url("https://exemplo.com/bloqueado", client=make_client(status=403))
+
+    assert info.value.status_code == 403

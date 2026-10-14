@@ -198,7 +198,7 @@ Tudo é lido do ambiente ou do arquivo `.env`, que nunca é versionado.
 | `LLM_MODEL` | sim | Modelo no formato `provedor:modelo`, ex.: `openai:<nome-do-modelo>` |
 | `OPENAI_API_KEY` | com OpenAI | Chave do provedor do LLM (outro provedor usa a própria variável) |
 | `WEB_READER` | não | Como ler links: `trafilatura` (padrão, sem chave) ou `tavily` |
-| `TAVILY_API_KEY` | para `--topic` ou `WEB_READER=tavily` | Chave do Tavily |
+| `TAVILY_API_KEY` | para `--topic` ou `WEB_READER=tavily` | Chave do Tavily. Com ela, o Tavily também vira o fallback quando um site bloqueia a leitura direta (HTTP 403) |
 | `IMAGE_PROVIDER` | não | `fake` (padrão) ou `higgsfield` (gera imagens reais; `--dry-run` desliga) |
 | `HF_KEY` | com Higgsfield | Credencial no formato `key-id:key-secret` |
 | `IMAGE_MODEL` | não | Modelo da Higgsfield (padrão: `higgsfield-ai/soul/v2/standard`) |

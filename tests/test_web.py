@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from content_pipeline.fetcher import FetchError, fetch_url
-from content_pipeline.web import make_fetch, tavily_fetch
+from content_pipeline.fetcher import FetchBlockedError, FetchError, fetch_url
+from content_pipeline.web import fetch_with_fallback, make_fetch, tavily_fetch
 from tests.fakes import make_settings
 
 MARKDOWN = "# Artigo de Exemplo\n\nPequenas mudanças geram grandes resultados."
@@ -51,8 +51,55 @@ def test_esquema_file_levanta_fetch_error_sem_chamar_o_cliente() -> None:
     assert client.calls == []
 
 
-def test_make_fetch_padrao_devolve_fetch_url() -> None:
+def test_make_fetch_padrao_sem_chave_tavily_devolve_fetch_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+
     assert make_fetch(make_settings()) is fetch_url
+
+
+def test_make_fetch_padrao_com_chave_tavily_usa_o_tavily_como_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TAVILY_API_KEY", "chave-falsa-de-teste")
+
+    fetch = make_fetch(make_settings())
+
+    assert fetch.func is fetch_with_fallback
+    assert fetch.keywords["primary"] is fetch_url
+
+
+def bloqueado(url: str) -> tuple[str | None, str]:
+    raise FetchBlockedError(f"Falha ao baixar {url}: 403 Forbidden", status_code=403)
+
+
+def test_fallback_le_pelo_tavily_quando_a_leitura_direta_e_bloqueada(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lidos = []
+
+    def tavily(url: str) -> tuple[str | None, str]:
+        lidos.append(url)
+        return "Título", "Texto lido pelo Tavily."
+
+    with caplog.at_level("WARNING"):
+        resultado = fetch_with_fallback("https://exemplo.com/a", primary=bloqueado, fallback=tavily)
+
+    assert resultado == ("Título", "Texto lido pelo Tavily.")
+    assert lidos == ["https://exemplo.com/a"]
+    assert "403" in caplog.text and "Tavily" in caplog.text
+
+
+def test_fallback_nao_e_usado_em_outros_erros() -> None:
+    def quebrado(url: str) -> tuple[str | None, str]:
+        raise FetchError(f"Falha ao baixar {url}: 404 Not Found")
+
+    def tavily(url: str) -> tuple[str | None, str]:
+        raise AssertionError("o Tavily não deveria ser chamado")
+
+    with pytest.raises(FetchError, match="404"):
+        fetch_with_fallback("https://exemplo.com/a", primary=quebrado, fallback=tavily)
 
 
 def test_make_fetch_tavily_sem_chave_levanta_fetch_error(monkeypatch: pytest.MonkeyPatch) -> None:

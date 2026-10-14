@@ -4,6 +4,7 @@ O conteúdo devolvido é NÃO CONFIÁVEL, como no `fetcher`: só aceitamos links
 texto é tratado como dado pelos nós que o usam.
 """
 
+import logging
 import os
 from collections.abc import Callable
 from functools import partial
@@ -12,8 +13,10 @@ from typing import Any
 from tavily import TavilyClient
 
 from content_pipeline.config import Settings
-from content_pipeline.fetcher import FetchError, fetch_url, require_http_url
+from content_pipeline.fetcher import FetchBlockedError, FetchError, fetch_url, require_http_url
 from content_pipeline.models import SearchResult
+
+logger = logging.getLogger(__name__)
 
 Fetch = Callable[[str], tuple[str | None, str]]
 Search = Callable[[str], list[SearchResult]]
@@ -62,18 +65,39 @@ def _markdown_title(markdown: str) -> str | None:
     return None
 
 
+def fetch_with_fallback(url: str, *, primary: Fetch, fallback: Fetch) -> tuple[str | None, str]:
+    """Lê `url` com `primary`; se o site bloquear a leitura direta (403), tenta `fallback`.
+
+    Outros erros (link quebrado, página sem texto, grande demais) não acionam o fallback.
+    """
+    try:
+        return primary(url)
+    except FetchBlockedError as exc:
+        logger.warning(
+            "Leitura direta de %s bloqueada (HTTP %s); tentando pelo Tavily.", url, exc.status_code
+        )
+        return fallback(url)
+
+
 def make_fetch(settings: Settings) -> Fetch:
     """Escolhe a função de leitura de links conforme `WEB_READER`.
+
+    Com o padrão (`trafilatura`) e `TAVILY_API_KEY` no ambiente, o Tavily vira o fallback para
+    sites que bloqueiam a leitura direta.
 
     Raises:
         FetchError: `WEB_READER=tavily` sem `TAVILY_API_KEY` no ambiente.
     """
+    has_tavily_key = bool(os.environ.get("TAVILY_API_KEY"))
     if settings.web_reader == "tavily":
         # Sem chave, o TavilyClient não falha: entra num modo "keyless" limitado.
         # Checamos aqui para dar uma mensagem clara antes de o pipeline começar.
-        if not os.environ.get("TAVILY_API_KEY"):
+        if not has_tavily_key:
             raise FetchError("WEB_READER=tavily exige TAVILY_API_KEY no .env.")
         return partial(tavily_fetch, client=TavilyClient())
+    if has_tavily_key:
+        tavily = partial(tavily_fetch, client=TavilyClient())
+        return partial(fetch_with_fallback, primary=fetch_url, fallback=tavily)
     return fetch_url
 
 
